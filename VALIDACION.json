@@ -1,0 +1,50 @@
+{
+  "artifact": "Broken-Dreams-Lobby.rbxlx",
+  "sha256": "64a9abfc4d245fc39020469a53ca56b64273357fc5dbb5fce1d4bf8dcc6cc1a4",
+  "bytes": 4748330,
+  "roblox_instance_counts": {
+    "Workspace": 1,
+    "Model": 30,
+    "Part": 1941,
+    "WedgePart": 1608,
+    "SpawnLocation": 1,
+    "PointLight": 12,
+    "Attachment": 2,
+    "ParticleEmitter": 2,
+    "SurfaceGui": 9,
+    "TextLabel": 27,
+    "ImageLabel": 8,
+    "Folder": 3,
+    "Camera": 1,
+    "ReplicatedStorage": 1,
+    "ServerScriptService": 1,
+    "ModuleScript": 1,
+    "Script": 1,
+    "StarterGui": 1,
+    "ScreenGui": 1,
+    "Frame": 1,
+    "UISizeConstraint": 1,
+    "UICorner": 1,
+    "UIStroke": 1,
+    "LocalScript": 1,
+    "Lighting": 1,
+    "BloomEffect": 1,
+    "ColorCorrectionEffect": 1,
+    "StarterPlayer": 1
+  },
+  "checks": [
+    "Lune 0.11.1 rbx-dom serialize/deserialize round trip",
+    "3550 static BaseParts retained",
+    "Script sources and Vector3 attributes retained",
+    "Unique referents and resolved references",
+    "9 SurfaceGuis, 6 survivor portrait spaces, 1 SpawnLocation",
+    "No GUI buttons or Jugar labels",
+    "Official Luau compiler on serialized script sources"
+  ],
+  "roblox_studio_tested": false,
+  "notes": [
+    "Native file contains existing Broken Dreams lobby geometry from this conversation",
+    "No Forgotten content imported or modified",
+    "No uploaded assets required to view lobby; portraits and map images await user originals"
+  ]
+}
