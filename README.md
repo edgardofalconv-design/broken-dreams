@@ -1,27 +1,29 @@
-# BROKEN DREAMS — Lobby
+# BROKEN DREAMS — Lobby con bosque exterior
 
-Entrega del lobby 3D ya construido en un proyecto nativo de Roblox. BROKEN DREAMS es un juego independiente.
+Ampliación del lobby existente con un bosque explorable alrededor de la carpa y una entrada renovada.
 
-## Descargar y abrir
+## Descargar
 
-- **[Descargar proyecto .rbxlx](https://raw.githubusercontent.com/edgardofalconv-design/broken-dreams/refs/heads/delivery/lobby-20261114/dist/Broken-Dreams-Lobby.rbxlx)**
-- **[Descargar ZIP completo](https://raw.githubusercontent.com/edgardofalconv-design/broken-dreams/refs/heads/delivery/lobby-20261114/dist/Broken-Dreams-Lobby-Entrega.zip)**
-- [Guía de apertura y configuración](GUIA_ABRIR.md)
+- **[Proyecto .rbxlx listo para abrir](https://raw.githubusercontent.com/edgardofalconv-design/broken-dreams/refs/heads/delivery/lobby-bosque-20261114/dist/Broken-Dreams-Lobby-Bosque.rbxlx)**
+- **[ZIP completo con proyecto, recursos y guía](https://raw.githubusercontent.com/edgardofalconv-design/broken-dreams/refs/heads/delivery/lobby-bosque-20261114/dist/Broken-Dreams-Lobby-Bosque-Entrega.zip)**
+- [Guía de apertura y cambios](GUIA_BOSQUE.md)
 
-En Roblox Studio: **Archivo → Abrir desde archivo → Broken-Dreams-Lobby.rbxlx**. El escenario ya está guardado dentro del proyecto; no requiere ejecutar un instalador. Pulsa Play para recorrerlo.
+En Roblox Studio: **Archivo → Abrir desde archivo → Broken-Dreams-Lobby-Bosque.rbxlx**. El escenario ya está construido; no requiere instalador ni importar recursos para visualizarlo.
 
-No hay que importar accesorios, meshes ni texturas para visualizar este lobby. Los retratos definitivos y las imágenes de mapas quedan pendientes de los archivos originales del creador.
+## Ampliación
 
-## Alcance
+75 árboles, hierba, sendero de tierra alrededor de la carpa, tres claros, piedras con musgo, troncos caídos, niebla suave y un límite natural de vegetación, raíces y taludes rocosos. Entrada ampliada con arco, toldo, banderines, faroles, cajas, barriles y carteles viejos. Pequeños hongos luminosos y cristales completan el ambiente.
 
-Sala de 72 × 60 studs; Malicia al fondo a la izquierda, Próximo mapa a la derecha, seis cuadros de supervivientes, rincón de skins, alfombra central, cubierta, faroles y decoración 3D. Temporizador preparado, sin botón Jugar ni sistema de partidas activo.
-
-El ZIP contiene el lugar, un modelo .rbxmx opcional, scripts, datos geométricos, herramientas de inspección, guía y vistas previas.
+Se conserva el interior y los scripts de servidor. Solo se retira el antiguo bloqueo de la entrada y se amplía la comprobación del área de cámara y HUD para incluir el exterior.
 
 ## Validación
 
-Se verificaron serialización y lectura del .rbxlx mediante Lune/rbx-dom, 3.550 piezas guardadas, scripts y atributos, referencias XML y compilación Luau. El ZIP se comprobó mediante CRC y los archivos se identifican en [SHA256_ENTREGA.json](SHA256_ENTREGA.json).
+La lectura del .rbxlx, las referencias XML, la compilación Luau y las pruebas geométricas locales pasan: 948 posiciones de recorrido y 720 comprobaciones del límite exterior. Se conservaron 3.549 piezas originales sin cambios; la única pieza retirada es el límite transparente detrás de la entrada.
 
-**No se ha ejecutado Roblox Studio en el entorno de preparación.** Play, física real, interfaces, multijugador y rendimiento deben comprobarse en Studio. El detalle artístico es una aproximación con piezas nativas a la referencia.
+**No se ha ejecutado Roblox Studio aquí.** Play, saltos, cámara real, multijugador y rendimiento deben probarse en Studio. Los renders son externos, no capturas del motor.
 
-![Cuatro vistas previas externas del lobby; no son capturas de Roblox Studio](VISTAS_PREVIAS.jpg)
+- [Informe de validación](VALIDACION_BOSQUE.json)
+- [Hashes SHA-256 de descarga](SHA256_BOSQUE.json)
+- [Entrega anterior conservada](https://github.com/edgardofalconv-design/broken-dreams/tree/8e3b94042fab518854c0976a617b0a7a0c3f2870)
+
+![Vistas externas de revisión del bosque](VISTAS_BOSQUE.jpg)
