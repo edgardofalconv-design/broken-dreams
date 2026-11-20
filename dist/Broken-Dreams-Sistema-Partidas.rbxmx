@@ -1,0 +1,2734 @@
+<roblox version="4">
+  <Item class="Model" referent="0">
+    <Properties>
+      <string name="Name">BrokenDreamsRoundPackage</string>
+      <BinaryString name="AttributesSerialize">AQAAABUAAABCRF9JZ25vcmVNYXBEaXNjb3ZlcnkDAQ==</BinaryString>
+    </Properties>
+    <Item class="Folder" referent="1">
+      <Properties>
+        <string name="Name">BrokenDreams</string>
+        <BinaryString name="AttributesSerialize">AQAAAA0AAABTeXN0ZW1WZXJzaW9uAhQAAAAwLjIuMC1yb3VuZHMtcHJldmlldw==</BinaryString>
+      </Properties>
+      <Item class="Folder" referent="2">
+        <Properties>
+          <string name="Name">Shared</string>
+        </Properties>
+        <Item class="ModuleScript" referent="3">
+          <Properties>
+            <string name="Name">GameConfig</string>
+            <string name="Source"><![CDATA[-- Todos los tiempos son segundos. Solo el servidor decide los valores efectivos.
+return {
+ MinimumPlayers = 2,
+ MaximumSurvivors = 6,
+ IntermissionSeconds = 30, -- Provisional
+ SelectionSeconds = 15, -- Provisional
+ RoundSeconds = 355,
+ EliminationBonusSeconds = 10,
+ LMSSeconds = 217,
+ EscapeAtSeconds = 80,
+ ResultsSeconds = 8, -- Provisional
+ MaximumHealth = 100,
+ ReviveHealth = 50, -- Provisional
+ ReviveSeconds = 4, -- Provisional
+ ReviveDistance = 9,
+ BleedoutSeconds = 45, -- Provisional; false desactiva el sangrado
+ TimeoutOutcome = "DEFEAT", -- Alternativa de prueba: DRAW
+ KillerDisconnectOutcome = "SURVIVOR_WIN", -- Política provisional, sin fingir escapes
+ InitialMalicia = 0, -- Temporal, por sesión. No se inventa una economía ni persistencia.
+ MapRetrySeconds = 5,
+ SelectionDistance = 16,
+ SpawnGroundRayHeight = 5,
+ SpawnGroundRayDepth = 20,
+ SpawnClearance = {4, 6, 4},
+ MinimumKillerSpawnSeparation = 24,
+ CharacterLoadTimeout = 12,
+ StudioToolsEnabled = true, -- Además requiere RunService:IsStudio() en el servidor.
+ StudioDamage = 100,
+ NormalMusicId = "", -- rbxassetid://ID real autorizado; vacío = silencio
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="4">
+          <Properties>
+            <string name="Name">RoundStates</string>
+            <string name="Source"><![CDATA[return {
+ WAITING_FOR_PLAYERS="WAITING_FOR_PLAYERS", INTERMISSION="INTERMISSION",
+ CHARACTER_SELECTION="CHARACTER_SELECTION", PREPARING_ROUND="PREPARING_ROUND",
+ ACTIVE_ROUND="ACTIVE_ROUND", LAST_SURVIVOR_STANDING="LAST_SURVIVOR_STANDING",
+ ROUND_RESULTS="ROUND_RESULTS", RETURN_TO_LOBBY="RETURN_TO_LOBBY",
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="5">
+          <Properties>
+            <string name="Name">CharacterRegistry</string>
+            <string name="Source"><![CDATA[return {
+ Order = {"Rayman", "Globox", "Grand Minimus", "Barbara", "Murfy", "Ly"},
+ Survivors = {
+  Rayman={ModelName="", LMSMusicId="", LMSTitle="THE LAST DREAM"},
+  Globox={ModelName="", LMSMusicId="", LMSTitle=""},
+  ["Grand Minimus"]={ModelName="", LMSMusicId="", LMSTitle=""},
+  Barbara={ModelName="", LMSMusicId="", LMSTitle=""},
+  Murfy={ModelName="", LMSMusicId="", LMSTitle=""},
+  Ly={ModelName="", LMSMusicId="", LMSTitle=""},
+ },
+ Killer={Name="RAY.X", ModelName=""},
+}
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="6">
+          <Properties>
+            <string name="Name">MapRegistry</string>
+            <string name="Source"><![CDATA[-- Solo se usan modelos YA EXISTENTES con BDMapId y RoundSpawns completos.
+-- No se generan mapas. Imagen vacía hasta recibir un recurso auténtico.
+return {
+ {Id="round_test", Name="Arena provisional · SOLO PRUEBAS", Image="", Enabled=true, StudioOnly=true},
+ {Id="forgotten_glade", Name="The Forgotten Glade", Image="", Enabled=true},
+ {Id="rotten_swamp", Name="The Rotten Swamp", Image="", Enabled=false},
+ {Id="dead_fiesta", Name="The Dead Fiesta", Image="", Enabled=false},
+ {Id="sunken_facility", Name="The Sunken Facility", Image="", Enabled=false},
+ {Id="fallen_olympus", Name="The Fallen Olympus", Image="", Enabled=false},
+}
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="7">
+        <Properties>
+          <string name="Name">Client</string>
+        </Properties>
+        <Item class="ModuleScript" referent="8">
+          <Properties>
+            <string name="Name">MusicController</string>
+            <string name="Source"><![CDATA[local SoundService=game:GetService("SoundService")
+local Controller={};Controller.__index=Controller
+function Controller.new(config,registry)
+ local sound=Instance.new("Sound");sound.Name="BD_RoundMusic";sound.Volume=.35;sound.Looped=true;sound.Parent=SoundService
+ return setmetatable({sound=sound,config=config,registry=registry,key=""},Controller)
+end
+function Controller:Update(snapshot)
+ local asset=""
+ if snapshot.state=="ACTIVE_ROUND" then asset=self.config.NormalMusicId
+ elseif snapshot.state=="LAST_SURVIVOR_STANDING" then
+  for _,p in snapshot.roster do if p.id==snapshot.lmsSurvivorId then
+   local definition=self.registry.Survivors[p.character];asset=definition and definition.LMSMusicId or ""
+  end end
+ end
+ if type(asset)~="string" or not asset:match("^rbxassetid://%d+$") then asset="" end
+ local key=tostring(snapshot.roundId)..":"..snapshot.state..":"..asset
+ if key==self.key then return end;self.key=key
+ self.sound:Stop();self.sound.SoundId=asset
+ if asset~="" then self.sound:Play() end
+end
+function Controller:Destroy() self.sound:Destroy() end
+return Controller
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="9">
+          <Properties>
+            <string name="Name">RoundUIController</string>
+            <string name="Source"><![CDATA[local Players=game:GetService("Players")
+local RunService=game:GetService("RunService")
+local TweenService=game:GetService("TweenService")
+local player=Players.LocalPlayer
+local Controller={};Controller.__index=Controller
+local phaseNames={
+ WAITING_FOR_PLAYERS="ESPERANDO JUGADORES",INTERMISSION="LA PARTIDA COMIENZA EN",
+ CHARACTER_SELECTION="ELIGE TU SUPERVIVIENTE",PREPARING_ROUND="PREPARANDO LA PARTIDA",
+ ACTIVE_ROUND="SOBREVIVE Y BUSCA LA SALIDA",LAST_SURVIVOR_STANDING="ÚLTIMO SUPERVIVIENTE",
+ ROUND_RESULTS="RESULTADOS",RETURN_TO_LOBBY="REGRESANDO AL LOBBY",
+}
+local resultNames={ESCAPED="ESCAPASTE",SURVIVOR_WIN="VICTORIA DE SUPERVIVIENTES",KILLER_WIN="VICTORIA DEL ASESINO",
+ MIXED="RESULTADO MIXTO",DEFEAT="DERROTA",DRAW="EMPATE",CANCELLED="RONDA CANCELADA",KILLER_LEFT="EL ASESINO ABANDONÓ"}
+local statusNames={ALIVE="Con vida",DOWNED="Incapacitado",ELIMINATED="Eliminado",ESCAPED="Escapaste",DISCONNECTED="Desconectado"}
+local function panel(parent,name,size,position,anchor)
+ local p=parent:FindFirstChild(name)
+ if p then return p end
+ p=Instance.new("Frame");p.Name=name;p.Size=size;p.Position=position;p.AnchorPoint=anchor;p.BackgroundColor3=Color3.fromRGB(27,17,39);p.BackgroundTransparency=.12;p.Parent=parent
+ local c=Instance.new("UICorner");c.CornerRadius=UDim.new(0,8);c.Parent=p
+ local s=Instance.new("UIStroke");s.Color=Color3.fromRGB(175,133,67);s.Transparency=.25;s.Parent=p
+ return p
+end
+local function text(parent,name,size,position,value)
+ local o=Instance.new("TextLabel");o.Name=name;o.Size=size;o.Position=position;o.BackgroundTransparency=1;o.Text=value
+ o.TextColor3=Color3.fromRGB(242,218,174);o.Font=Enum.Font.GothamMedium;o.TextSize=15;o.TextWrapped=true;o.Parent=parent;return o
+end
+function Controller.new(gui)
+ local self=setmetatable({gui=gui,data=nil,spectateIndex=1,connections={},noticeUntil=0,lastPortalRound=0,lastLMSRound=0},Controller)
+ gui.Enabled=true;gui.ResetOnSpawn=false
+ self.heading=gui.Panel.Heading;self.timer=gui.Panel.Time
+ self.info=panel(gui,"BD_Status",UDim2.new(.45,0,0,112),UDim2.new(0,12,1,-18),Vector2.new(0,1))
+ local size=Instance.new("UISizeConstraint");size.MaxSize=Vector2.new(330,112);size.MinSize=Vector2.new(150,112);size.Parent=self.info
+ self.identity=text(self.info,"Identity",UDim2.new(1,-16,0,29),UDim2.fromOffset(8,5),"Esperando próxima partida")
+ self.health=text(self.info,"Health",UDim2.new(1,-16,0,28),UDim2.fromOffset(8,34),"")
+ self.status=text(self.info,"Status",UDim2.new(1,-16,0,36),UDim2.fromOffset(8,64),"")
+ self.notice=panel(gui,"BD_Notice",UDim2.new(.85,0,0,70),UDim2.new(.5,0,0,112),Vector2.new(.5,0))
+ local limit=Instance.new("UISizeConstraint");limit.MaxSize=Vector2.new(650,70);limit.Parent=self.notice
+ self.noticeText=text(self.notice,"Text",UDim2.new(1,-20,1,-12),UDim2.fromOffset(10,6),"");self.notice.Visible=false
+ self.result=panel(gui,"BD_Results",UDim2.new(.85,0,0,155),UDim2.new(.5,0,.45,0),Vector2.new(.5,.5))
+ local rlimit=Instance.new("UISizeConstraint");rlimit.MaxSize=Vector2.new(520,155);rlimit.Parent=self.result
+ self.resultText=text(self.result,"Summary",UDim2.new(1,-24,1,-20),UDim2.fromOffset(12,10),"");self.resultText.TextSize=19;self.result.Visible=false
+ self.spectate=Instance.new("TextButton");self.spectate.Name="BD_SpectateNext";self.spectate.Size=UDim2.fromOffset(150,42);self.spectate.Position=UDim2.new(1,-162,1,-70)
+ self.spectate.Text="Ver otro jugador";self.spectate.TextSize=14;self.spectate.Font=Enum.Font.GothamMedium;self.spectate.BackgroundColor3=Color3.fromRGB(64,34,87);self.spectate.TextColor3=Color3.fromRGB(248,224,180);self.spectate.Parent=gui;self.spectate.Visible=false
+ local corner=Instance.new("UICorner");corner.Parent=self.spectate
+ local ability=panel(gui,"BD_FutureAbilities",UDim2.fromOffset(150,34),UDim2.new(1,-12,1,-18),Vector2.new(1,1))
+ text(ability,"Placeholder",UDim2.fromScale(1,1),UDim2.fromScale(0,0),"Habilidades · próximamente").TextSize=12
+ table.insert(self.connections,self.spectate.Activated:Connect(function()self.spectateIndex+=1;self:Camera()end))
+ table.insert(self.connections,player.CharacterAdded:Connect(function()task.defer(function()self:Camera()end)end))
+ table.insert(self.connections,RunService.RenderStepped:Connect(function()
+  if not self.data then return end
+  local remaining=self.data.deadline>0 and math.max(0,math.ceil(self.data.deadline-workspace:GetServerTimeNow())) or -1
+  self.timer.Text=remaining<0 and "—:—" or string.format("%02d:%02d",math.floor(remaining/60),remaining%60)
+  if self.notice.Visible and os.clock()>self.noticeUntil then self.notice.Visible=false end
+ end))
+ player.CameraMode=Enum.CameraMode.Classic;player.CameraMinZoomDistance=6;player.CameraMaxZoomDistance=24
+ return self
+end
+function Controller:Notify(value,duration)
+ self.noticeText.Text=value;self.notice.Visible=true;self.noticeUntil=os.clock()+(duration or 5)
+ self.notice.BackgroundTransparency=.7;TweenService:Create(self.notice,TweenInfo.new(.2),{BackgroundTransparency=.12}):Play()
+end
+function Controller:Camera()
+ if not self.data then return end
+ local own
+ for _,p in self.data.roster do if p.id==player.UserId then own=p end end
+ local active=self.data.state=="ACTIVE_ROUND" or self.data.state=="LAST_SURVIVOR_STANDING"
+ local observer=active and own and (own.status=="ELIMINATED" or own.status=="ESCAPED")
+ local targets={}
+ if observer then
+  for _,p in self.data.roster do
+   if p.status=="ALIVE" or p.status=="DOWNED" then
+    local target=Players:GetPlayerByUserId(p.id);local hum=target and target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+    if hum then table.insert(targets,hum) end
+   end
+  end
+ end
+ self.spectate.Visible=observer and #targets>0 or false
+ local subject=#targets>0 and targets[(self.spectateIndex-1)%#targets+1] or player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+ if subject and workspace.CurrentCamera then workspace.CurrentCamera.CameraType=Enum.CameraType.Custom;workspace.CurrentCamera.CameraSubject=subject end
+end
+function Controller:Update(data)
+ self.data=data;self.heading.Text=phaseNames[data.state] or data.state
+ local own;local downed=0
+ for _,p in data.roster do if p.id==player.UserId then own=p end;if p.status=="DOWNED" then downed+=1 end end
+ self.identity.Text=own and ((own.role=="KILLER" and "ASESINO · ") or "SUPERVIVIENTE · ")..(own.character or "Por elegir") or "En el lobby · "..(player:GetAttribute("BDPreference") or "por elegir")
+ self.health.Text=own and own.role=="SURVIVOR" and ("Salud "..math.ceil(own.health).." / "..(data.maxHealth or 100).." · Vidas "..own.lives) or own and "RAY.X · avatar provisional" or data.map
+ self.status.Text=own and (statusNames[own.status] or "") or "Acércate a un cuadro para elegir"
+ if downed>0 then self.status.Text=self.status.Text.." · "..downed.." necesita(n) ayuda" end
+ if data.state=="WAITING_FOR_PLAYERS" and data.diagnostic~="" then
+  self.status.Text="Falta un mapa válido. Consulta la guía de integración."
+ end
+ self.result.Visible=data.state=="ROUND_RESULTS"
+ if self.result.Visible then
+  local result=data.results[player.UserId] or data.results[tostring(player.UserId)]
+  self.resultText.Text=(resultNames[data.aggregate] or "RESULTADOS").."\n\n"..(resultNames[result] or "Esperas la siguiente partida")
+  if data.aggregate=="CANCELLED" then self.resultText.Text=self.resultText.Text.."\n"..(data.reason or "") end
+ end
+ if data.portalOpen and self.lastPortalRound~=data.roundId then self.lastPortalRound=data.roundId;self:Notify("¡EL CUADRO MÁGICO ESTÁ ABIERTO! Busca la salida.",6) end
+ if data.state=="LAST_SURVIVOR_STANDING" and self.lastLMSRound~=data.roundId then
+  self.lastLMSRound=data.roundId;local survivor,killer="",""
+  for _,p in data.roster do if p.id==data.lmsSurvivorId then survivor=p.name.." · "..(p.character or "") elseif p.id==data.killerId then killer=p.name.." · RAY.X" end end
+  self:Notify("ÚLTIMO SUPERVIVIENTE\n"..survivor.." contra "..killer.." · 3:37",6)
+ end
+ self:Camera()
+end
+function Controller:Destroy() for _,c in self.connections do c:Disconnect() end end
+return Controller
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="10">
+          <Properties>
+            <string name="Name">CharacterSelectionController</string>
+            <string name="Source"><![CDATA[local Prompts=game:GetService("ProximityPromptService")
+local Controller={}
+function Controller.Start(request)
+ local connections={}
+ table.insert(connections,Prompts.PromptButtonHoldBegan:Connect(function(prompt)
+  if prompt.Name=="BD_Revive" then request:FireServer("ReviveBegin",prompt:GetAttribute("TargetUserId")) end
+ end))
+ table.insert(connections,Prompts.PromptButtonHoldEnded:Connect(function(prompt)
+  if prompt.Name=="BD_Revive" then request:FireServer("ReviveCancel") end
+ end))
+ -- Los cuadros conservan su geometría: sus ProximityPrompts se conectan directamente en servidor.
+ return connections
+end
+return Controller
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="11">
+        <Properties>
+          <string name="Name">Remotes</string>
+        </Properties>
+        <Item class="RemoteEvent" referent="12">
+          <Properties>
+            <string name="Name">Request</string>
+          </Properties>
+        </Item>
+        <Item class="RemoteEvent" referent="13">
+          <Properties>
+            <string name="Name">Snapshot</string>
+          </Properties>
+        </Item>
+        <Item class="RemoteEvent" referent="14">
+          <Properties>
+            <string name="Name">Notice</string>
+          </Properties>
+        </Item>
+      </Item>
+      <Item class="Folder" referent="15">
+        <Properties>
+          <string name="Name">RoundState</string>
+          <BinaryString name="AttributesSerialize">AgAAAAgAAABEZWFkbGluZQUAAAAABQAAAFBoYXNlAhMAAABXQUlUSU5HX0ZPUl9QTEFZRVJT</BinaryString>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="Folder" referent="16">
+      <Properties>
+        <string name="Name">ServerModules</string>
+      </Properties>
+      <Item class="Script" referent="17">
+        <Properties>
+          <string name="Name">RoundService</string>
+          <bool name="Disabled">true</bool>
+          <string name="Source"><![CDATA[local Players=game:GetService("Players")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local ServerStorage=game:GetService("ServerStorage")
+local RunService=game:GetService("RunService")
+local root=ReplicatedStorage:WaitForChild("BrokenDreams")
+local shared=root:WaitForChild("Shared")
+local config=require(shared.GameConfig)
+local registry=require(shared.CharacterRegistry)
+local mapRegistry=require(shared.MapRegistry)
+local runtime=root:WaitForChild("RoundState")
+if runtime:GetAttribute("Running") then warn("[BROKEN DREAMS] Controlador duplicado rechazado");return end
+runtime:SetAttribute("Running",true)
+local remotes=root.Remotes
+local lobby=workspace:WaitForChild("BrokenDreamsLobby",10)
+local lobbyState=ReplicatedStorage:FindFirstChild("BrokenDreamsLobbyState")
+if not lobby or not lobbyState then runtime:SetAttribute("Running",false);warn("[BROKEN DREAMS] Falta el lobby original; no se ha creado uno nuevo");return end
+local API=require(game:GetService("ServerScriptService"):WaitForChild("BrokenDreamsLobbyAPI"))
+local random=Random.new()
+local Core=require(script.Parent.RoundCore)
+local core=Core.new(config,registry.Order,function(n)return random:NextInteger(1,n)end)
+local hooks=require(script.Parent.IntegrationHooks)
+local malicia=require(script.Parent.MaliciaService).new(config,hooks)
+local avatar=require(script.Parent.AvatarService).new(config,registry)
+local spawn=require(script.Parent.SpawnService).new(config,lobby)
+local maps=require(script.Parent.MapService).new(mapRegistry,spawn,config,lobby)
+local revive=require(script.Parent.ReviveService).new(core,config,Players)
+local escape=require(script.Parent.EscapeService).new(core,Players)
+local results=require(script.Parent.ResultsService).new(hooks)
+local limiter=require(script.Parent.RateLimiter).new(8,4)
+local candidate=nil;local diagnostic="";local retryAt=0
+local preparing=false;local returning=false;local controlledLoads={};local recovery={};local outReturned={};local playerConnections={}
+local lastState="";local lastRound=0;local publishAt=0;local lastBoard="";local lastWarning=""
+local health
+local function now() return workspace:GetServerTimeNow() end
+local function present(player) return player.Parent==Players end
+local function participantList()
+ local list={}
+ for _,player in Players:GetPlayers() do
+  local ok,value=pcall(malicia.Get,malicia,player)
+  if ok then
+   table.insert(list,{id=player.UserId,name=player.DisplayName,malicia=value})
+   player:SetAttribute("BDMalicia",value)
+  elseif lastWarning~=tostring(value) then lastWarning=tostring(value);warn("[BROKEN DREAMS] "..lastWarning) end
+ end
+ return list
+end
+local function loadAvatar(player,record)
+ controlledLoads[player.UserId]=true
+ local ok,err=avatar:Load(player,record)
+ controlledLoads[player.UserId]=nil
+ return ok,err
+end
+local function resetAttributes(player)
+ for _,name in {"BDHealth","BDLives","BDStatus","BDRole","BDCharacter","BDResult"} do player:SetAttribute(name,nil) end
+end
+local function moveLobby(player,index)
+ if not present(player) then return end
+ spawn:Teleport(player,spawn:LobbyCFrame(index))
+ player.RespawnLocation=lobby.PlayerSpawns.LobbySpawn
+end
+local function recoverCharacter(player,cf)
+ local id=player.UserId;local p=core.roster[id]
+ if recovery[id] or not p or not core:IsActive() then return end
+ recovery[id]=true
+ local round=core.roundId
+ -- Reset/muerte ambiental no concede segundos al asesino.
+ if p.role=="KILLER" then
+  core:Finish(now(),"KILLER_LEFT")
+ elseif p.status=="ALIVE" then core:Damage(id,p.health,nil,now()) end
+ task.spawn(function()
+  health:Unbind(id)
+  local ok=loadAvatar(player,p)
+  if ok and core.roundId==round and core:IsActive() and (p.status=="ALIVE" or p.status=="DOWNED") then
+   local location=cf
+   -- Un reset fuera de límites se recupera en un spawn validado del mapa.
+   if maps.active then
+    local bounds=maps.active.bounds;local v=bounds.CFrame:PointToObjectSpace(cf.Position);local half=bounds.Size/2
+    if math.abs(v.X)>half.X or math.abs(v.Z)>half.Z or math.abs(v.Y)>half.Y then location=maps.active.survivors[1].cframe end
+   end
+   spawn:Teleport(player,location);health:Bind(player)
+  else
+   if core:IsActive() and p.status=="DOWNED" and not ok then core:Eliminate(id,nil,now()) end
+   moveLobby(player)
+  end
+  recovery[id]=nil
+ end)
+end
+health=require(script.Parent.HealthService).new(core,avatar,recoverCharacter)
+
+local function message(player,text) if present(player) then remotes.Notice:FireClient(player,text) end end
+local function selection(player,name)
+ if type(name)~="string" or #name>40 or not table.find(registry.Order,name) then return end
+ local model
+ for _,item in lobby.CharacterGallery:GetChildren() do if item:GetAttribute("CharacterName")==name then model=item;break end end
+ local surface=model and model:FindFirstChild("DisplaySurface",true)
+ local character=player.Character;local rootPart=character and character:FindFirstChild("HumanoidRootPart")
+ if not surface or not rootPart or (surface.Position-rootPart.Position).Magnitude>config.SelectionDistance then message(player,"Acércate al cuadro para elegir");return end
+ local ok,text=core:Select(player.UserId,name)
+ if ok then player:SetAttribute("BDPreference",name) end
+ message(player,text)
+end
+for _,model in lobby.CharacterGallery:GetChildren() do
+ local name=model:GetAttribute("CharacterName");local surface=model:FindFirstChild("DisplaySurface",true)
+ if name and surface then
+  local prompt=surface:FindFirstChild("BD_SelectCharacter")
+  if not prompt then prompt=Instance.new("ProximityPrompt");prompt.Name="BD_SelectCharacter";prompt.Parent=surface end
+  prompt.ActionText="Elegir superviviente";prompt.ObjectText=name;prompt.MaxActivationDistance=config.SelectionDistance
+  prompt.RequiresLineOfSight=false;prompt.HoldDuration=.25
+  prompt.Triggered:Connect(function(player) if limiter:Allow(player.UserId,now()) then selection(player,name) end end)
+ end
+end
+local function snapshot()
+ local roster={}
+ for id,p in core.roster do
+  table.insert(roster,{id=id,name=p.name,role=p.role,character=p.character,status=p.status,health=p.health,lives=p.lives,bleedoutAt=p.bleedoutAt})
+ end
+ table.sort(roster,function(a,b)return a.id<b.id end)
+ return {state=core.state,roundId=core.roundId,deadline=core.deadline,serverNow=now(),roster=roster,
+  portalOpen=core.portalOpen,lmsSurvivorId=core.lmsSurvivorId,killerId=core.killerId,
+  results=core.results,aggregate=core.aggregate,reason=core.reason,diagnostic=diagnostic,maxHealth=config.MaximumHealth,
+  map=candidate and candidate.entry.Name or "MAPA NO DISPONIBLE"}
+end
+remotes.Request.OnServerEvent:Connect(function(player,action,value)
+ if type(action)~="string" or #action>24 or not limiter:Allow(player.UserId,now()) then return end
+ local time=now()
+ if core:IsActive() and time>=core.deadline then core:Finish(time,"TIMEOUT") end
+ if action=="Sync" then remotes.Snapshot:FireClient(player,snapshot())
+ elseif action=="Select" then selection(player,value)
+ elseif action=="ReviveBegin" and type(value)=="number" and value==value and value%1==0 then revive:Begin(player.UserId,value,time)
+ elseif action=="ReviveCancel" then revive:Cancel(player.UserId) end
+end)
+
+local function updateBoards(players)
+ local bestValue=-math.huge;local leaders={}
+ for _,p in players do
+  if p.malicia>bestValue then bestValue=p.malicia;leaders={p}
+  elseif p.malicia==bestValue then table.insert(leaders,p) end
+ end
+ local record=core.killerId and core.roster[core.killerId]
+ local picked=record and core.state~="WAITING_FOR_PLAYERS" and core.state~="INTERMISSION"
+ local name=picked and record.name or (#leaders==1 and leaders[1].name or #leaders>1 and "EMPATE · "..#leaders.." JUGADORES" or "POR DETERMINAR")
+ local id=picked and record.id or (#leaders==1 and leaders[1].id or 0)
+ local score=0
+ for _,p in players do if p.id==id then score=p.malicia end end
+ if not picked and #leaders>1 then score=bestValue end
+ local text=name.." · MALICIA "..tostring(score)
+ if text~=lastBoard then
+  lastBoard=text;lobbyState:SetAttribute("MaliciaValue",score);lobbyState:SetAttribute("MaliciaUserId",id);lobbyState:SetAttribute("MaliciaName",text)
+ end
+ API.SetCountdown(core:Remaining(now()))
+ lobbyState:SetAttribute("RoundPhase",core.state)
+ for _,model in lobby.CharacterGallery:GetChildren() do
+  local display=model:FindFirstChild("DisplaySurface",true);display=display and display:FindFirstChild("Display")
+  local name=model:GetAttribute("CharacterName")
+  if display and name then
+   local owner=nil
+   for _,p in core.roster do if p.role=="SURVIVOR" and p.character==name then owner=p.name end end
+   display.Detail.Text=owner and ("RESERVADO · "..owner) or "ELIGE EN EL CUADRO"
+  end
+ end
+end
+
+local function equipTestTool(player)
+ if not RunService:IsStudio() or not config.StudioToolsEnabled then return end
+ local backpack=player:FindFirstChildOfClass("Backpack");if not backpack then return end
+ local tool=Instance.new("Tool");tool.Name="STUDIO · Daño de prueba";tool.RequiresHandle=false;tool.CanBeDropped=false
+ local round=core.roundId;local nextHit=0
+ tool.Activated:Connect(function()
+  if not RunService:IsStudio() or core.roundId~=round or core.killerId~=player.UserId or not core:IsActive() or now()<nextHit then return end
+  nextHit=now()+.8
+  local actor=player.Character and player.Character:FindFirstChild("HumanoidRootPart");if not actor then return end
+  local nearest,dist=nil,12
+  for id,p in core.roster do
+   local target=Players:GetPlayerByUserId(id);local targetRoot=target and target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+   if p.role=="SURVIVOR" and p.status=="ALIVE" and targetRoot then
+    local delta=targetRoot.Position-actor.Position
+    local ray=RaycastParams.new();ray.FilterType=Enum.RaycastFilterType.Exclude;ray.FilterDescendantsInstances={player.Character,target.Character};ray.RespectCanCollide=true
+    if delta.Magnitude<dist and not workspace:Raycast(actor.Position,delta,ray) then nearest=target;dist=delta.Magnitude end
+   end
+  end
+  if nearest then health:Damage(nearest,config.StudioDamage,player) end
+ end)
+ tool.Parent=backpack
+end
+local function removeTestTools(player)
+ for _,container in {player:FindFirstChildOfClass("Backpack"),player.Character} do
+  if container then for _,item in container:GetChildren() do if item:IsA("Tool") and item.Name=="STUDIO · Daño de prueba" then item:Destroy() end end end
+ end
+end
+
+local function prepareRound()
+ if preparing then return end;preparing=true
+ local round=core.roundId
+ task.spawn(function()
+  local ok,err=xpcall(function()
+   local active,problem=maps:Prepare(candidate)
+   if not active then error(problem) end
+   local survivors={};for _,p in core.roster do if p.role=="SURVIVOR" then table.insert(survivors,p) end end
+   table.sort(survivors,function(a,b)return a.id<b.id end)
+   local positions={[core.killerId]=active.killer.cframe}
+   for i,p in survivors do positions[p.id]=active.survivors[i].cframe end
+   local pending=0;local failure=nil
+   for id,p in core.roster do
+    local player=Players:GetPlayerByUserId(id)
+    if player then
+     avatar:Save(player);pending+=1
+     task.spawn(function()
+      local success,why=loadAvatar(player,p)
+      if success and core.roundId==round and core.state=="PREPARING_ROUND" and core.roster[id]==p and present(player) then
+       success,why=spawn:Teleport(player,positions[id])
+       if success then health:Bind(player) end
+      else success=false;why=why or "Preparación cancelada" end
+      if not success then failure=why end
+      pending-=1
+     end)
+    end
+   end
+   local untilTime=os.clock()+config.CharacterLoadTimeout+2
+   repeat task.wait(.05) until pending==0 or os.clock()>=untilTime or core.state~="PREPARING_ROUND"
+   if core.roundId~=round or core.state~="PREPARING_ROUND" then return end
+   if pending>0 or failure then error(failure or "Tiempo agotado preparando participantes") end
+   if core:StartRound(now()) then
+    for id,p in core.roster do
+     local player=Players:GetPlayerByUserId(id)
+     if player then
+      player:SetAttribute("BDRole",p.role);player:SetAttribute("BDCharacter",p.character);health:Sync(player)
+      if p.role=="KILLER" then equipTestTool(player) end
+     end
+    end
+   end
+  end,function(e)return tostring(e).."\n"..debug.traceback()end)
+  if not ok then
+   warn("[BROKEN DREAMS] Preparación cancelada: "..tostring(err))
+   diagnostic=tostring(err):match("^[^\n]+") or "Error preparando mapa"
+   if core.roundId==round and core.state=="PREPARING_ROUND" then core:Abort(now(),"No se pudo preparar el mapa o los avatares") end
+  end
+  preparing=false
+ end)
+end
+local function returnRound()
+ if returning then return end;returning=true
+ task.spawn(function()
+  revive:Cleanup();escape:Cleanup();health:Cleanup()
+  local ok,err=xpcall(function()
+   local pending=0
+   for index,player in Players:GetPlayers() do
+    removeTestTools(player)
+    if avatar.saved[player.UserId] then
+     pending+=1
+     task.spawn(function()
+      controlledLoads[player.UserId]=true
+      local restored=avatar:Restore(player)
+      if not restored then loadAvatar(player,nil) end
+      controlledLoads[player.UserId]=nil
+      resetAttributes(player);moveLobby(player,index);pending-=1
+     end)
+    else resetAttributes(player);moveLobby(player,index) end
+   end
+   local stop=os.clock()+config.CharacterLoadTimeout+3
+   repeat task.wait(.05) until pending==0 or os.clock()>=stop
+  end,function(e)return tostring(e).."\n"..debug.traceback()end)
+  if not ok then warn("[BROKEN DREAMS] Recuperación del lobby: "..err) end
+  maps:Cleanup();outReturned={};candidate=nil;retryAt=now()+config.MapRetrySeconds
+  core:Returned(now());returning=false
+ end)
+end
+
+local function joined(player)
+ player.RespawnLocation=lobby.PlayerSpawns.LobbySpawn
+ local function characterAdded(character)
+  local expected=controlledLoads[player.UserId]==true
+  task.spawn(function()
+   local rootPart=character:WaitForChild("HumanoidRootPart",10)
+   if not rootPart or player.Character~=character or not present(player) or expected then return end
+   local p=core.roster[player.UserId]
+   if core:IsActive() and p and (p.status=="ALIVE" or p.status=="DOWNED") then
+    recoverCharacter(player,rootPart.CFrame)
+   else moveLobby(player) end
+  end)
+ end
+ playerConnections[player.UserId]=player.CharacterAdded:Connect(characterAdded)
+ if player.Character then characterAdded(player.Character) end
+end
+Players.PlayerAdded:Connect(joined)
+Players.PlayerRemoving:Connect(function(player)
+ core:Disconnect(player.UserId,now());health:Unbind(player.UserId);revive:Cancel(player.UserId)
+ malicia:Forget(player);limiter:Forget(player.UserId)
+ local connection=playerConnections[player.UserId];if connection then connection:Disconnect();playerConnections[player.UserId]=nil end
+ avatar:Forget(player.UserId)
+end)
+for _,player in Players:GetPlayers() do joined(player) end
+
+-- Única puerta de pruebas, solo servidor y creada exclusivamente dentro de Studio.
+if RunService:IsStudio() and config.StudioToolsEnabled then
+ local debugFunction=Instance.new("BindableFunction");debugFunction.Name="BrokenDreamsDebug";debugFunction.Parent=ServerStorage
+ debugFunction.OnInvoke=function(command,userId,value)
+  assert(RunService:IsStudio(),"Solo Studio")
+  local player=type(userId)=="number" and Players:GetPlayerByUserId(userId) or nil
+  if command=="Status" then return snapshot()
+  elseif command=="Intermission" then assert(type(value)=="number" and value>=0 and value<=300);core.intermissionOverride=value;return true
+  elseif command=="Start" then
+   if #participantList()<config.MinimumPlayers or not candidate then return false,"Faltan jugadores o mapa válido" end
+   if core.state=="WAITING_FOR_PLAYERS" then core:Step(now(),participantList(),true) end
+   if core.state=="INTERMISSION" then core.deadline=now();return true end
+   return false,"La ronda ya está en curso"
+  elseif command=="Malicia" then assert(player,"Jugador no encontrado");malicia:SetStudio(player,value);return true
+  elseif command=="Killer" then
+   assert(player,"Jugador no encontrado");assert(core.state=="WAITING_FOR_PLAYERS" or core.state=="INTERMISSION","Configura antes de seleccionar")
+   local maximum=0;for _,p in participantList() do maximum=math.max(maximum,p.malicia) end
+   malicia:SetStudio(player,maximum+1);return true -- mantiene la regla de mayor Malicia
+  elseif command=="Damage" or command=="Down" then
+   assert(player,"Jugador no encontrado");return health:Damage(player,command=="Down" and config.MaximumHealth or value,Players:GetPlayerByUserId(core.killerId or 0))
+  elseif command=="Revive" then assert(player,"Jugador no encontrado");return core:Revive(player.UserId,now())
+  elseif command=="Escape" then if core:IsActive() then core.portalOpen=true;return true end;return false
+  elseif command=="LMS" then return core:BeginLMS(now(),true)
+  elseif command=="End" then return core:Finish(now(),"STUDIO_END")
+  elseif command=="Time" then assert(core:IsActive() and type(value)=="number" and value>=0 and value<=600);core.deadline=now()+value;return true
+  end
+  return false,"Comando desconocido"
+ end
+end
+
+local elapsed=0
+RunService.Heartbeat:Connect(function(dt)
+ elapsed+=dt;if elapsed<.1 then return end;elapsed=0
+ if core.state=="WAITING_FOR_PLAYERS" and #Players:GetPlayers()==0 then return end
+ local ok,err=xpcall(function()
+  local time=now();local players=participantList()
+  if core.state=="WAITING_FOR_PLAYERS" and time>=retryAt and not preparing and not returning then
+   candidate,diagnostic=maps:Next();diagnostic=diagnostic or "";retryAt=time+config.MapRetrySeconds
+   API.SetNextMap(candidate and candidate.entry.Name or "MAPA NO DISPONIBLE",candidate and candidate.entry.Image or "")
+  end
+  core:Step(time,players,candidate~=nil)
+  if core.state=="PREPARING_ROUND" then prepareRound()
+  elseif core:IsActive() then
+   revive:Step(time)
+   if core.portalOpen and maps.active then escape:Open(maps.active.escape) end
+   escape:Step(time)
+   for id,p in core.roster do
+    local player=Players:GetPlayerByUserId(id)
+    if player then
+     health:Sync(player)
+     if (p.status=="ESCAPED" or p.status=="ELIMINATED") and not outReturned[id] then
+      outReturned[id]=true;moveLobby(player)
+     end
+    end
+   end
+  elseif core.state=="ROUND_RESULTS" then
+   results:Deliver(core,Players);revive:Cleanup()
+  elseif core.state=="RETURN_TO_LOBBY" then returnRound() end
+  if core.state~=lastState or core.roundId~=lastRound then
+   lastState=core.state;lastRound=core.roundId;publishAt=0
+   if core.state=="ROUND_RESULTS" then
+    for _,player in Players:GetPlayers() do removeTestTools(player);health:Sync(player) end
+   end
+  end
+  if time>=publishAt then
+   publishAt=time+.25;updateBoards(players)
+   runtime:SetAttribute("Phase",core.state);runtime:SetAttribute("Deadline",core.deadline)
+   runtime:SetAttribute("RoundId",core.roundId);runtime:SetAttribute("Diagnostic",diagnostic)
+   remotes.Snapshot:FireAllClients(snapshot())
+  end
+ end,function(e)return tostring(e).."\n"..debug.traceback()end)
+ if not ok then
+  if lastWarning~=err then lastWarning=err;warn("[BROKEN DREAMS] "..err) end
+  if core:IsActive() or core.state=="PREPARING_ROUND" or core.state=="CHARACTER_SELECTION" then core:Abort(now(),"Error recuperable del servidor") end
+ end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="18">
+        <Properties>
+          <string name="Name">MapService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(registry,spawn,config,lobby)
+ return setmetatable({registry=registry,spawn=spawn,config=config,lobby=lobby,cursor=0,active=nil},Service)
+end
+function Service:Find(entry)
+ local found={}
+ local function ignored(o)
+  local current=o
+  while current do
+   if current:GetAttribute("BD_IgnoreMapDiscovery") or current:GetAttribute("BD_RuntimeMap") then return true end
+   current=current.Parent
+  end
+  return false
+ end
+ for _,service in {workspace,game:GetService("ServerStorage")} do
+  for _,o in service:GetDescendants() do
+   if o:IsA("Model") and (o:GetAttribute("BDMapId")==entry.Id or o.Name==entry.Name)
+    and not o:IsDescendantOf(self.lobby) and o~=self.lobby and not ignored(o) then table.insert(found,o) end
+  end
+ end
+ if #found==1 then return found[1] end
+ return nil,#found==0 and "No está construido/importado "..entry.Name or "Hay modelos duplicados para "..entry.Name
+end
+function Service:Structure(model)
+ local folder=model:FindFirstChild("RoundSpawns");local bounds=model:FindFirstChild("PlayBounds")
+ if not folder or not bounds or not bounds:IsA("BasePart") or bounds.CanCollide or not bounds.Anchored then return nil,"Faltan RoundSpawns / PlayBounds válidos" end
+ local killer=folder:FindFirstChild("Killer");local escape=folder:FindFirstChild("Escape")
+ local survivors=folder:FindFirstChild("Survivors")
+ if not killer or not escape or not survivors then return nil,"Faltan Killer, Escape o Survivors" end
+ local list=survivors:GetChildren();table.sort(list,function(a,b)return a.Name<b.Name end)
+ if #list<self.config.MaximumSurvivors then return nil,"Se necesitan seis marcadores de supervivientes" end
+ for _,marker in list do if not marker:IsA("BasePart") then return nil,"Survivors solo debe contener marcadores Part" end end
+ return {folder=folder,bounds=bounds,killer=killer,escape=escape,survivors=list}
+end
+function Service:Next()
+ local available={};local problems={}
+ for _,entry in self.registry do
+  if entry.Enabled and (not entry.StudioOnly or game:GetService("RunService"):IsStudio()) then
+   local model,err=self:Find(entry)
+   if model then
+    local structure;structure,err=self:Structure(model)
+    if structure then table.insert(available,{entry=entry,model=model}) end
+   end
+   if err then table.insert(problems,err) end
+  end
+ end
+ if #available==0 then return nil,table.concat(problems,"; ") end
+ self.cursor=self.cursor%#available+1;return available[self.cursor]
+end
+function Service:Prepare(candidate)
+ self:Cleanup()
+ if not candidate or not candidate.model.Parent then return nil,"Mapa no disponible" end
+ local map=candidate.model;local owned=false
+ if map:IsDescendantOf(game:GetService("ServerStorage")) then
+  map=map:Clone();map.Name="BD_ActiveMap";map:SetAttribute("BD_RuntimeMap",true);map.Parent=workspace;owned=true
+  game:GetService("RunService").Heartbeat:Wait()
+ end
+ self.active={model=map,owned=owned}
+ local s,err=self:Structure(map);if not s then self:Cleanup();return nil,err end
+ local killer;killer,err=self.spawn:Validate(map,s.killer,s.bounds)
+ if not killer then self:Cleanup();return nil,"Killer: "..err end
+ local escape;escape,err=self.spawn:Validate(map,s.escape,s.bounds,Vector3.new(9,10,6))
+ if not escape then self:Cleanup();return nil,"Escape: "..err end
+ local survivors={}
+ for i=1,self.config.MaximumSurvivors do
+  local point;point,err=self.spawn:Validate(map,s.survivors[i],s.bounds)
+  if not point then self:Cleanup();return nil,"Survivor "..i..": "..err end
+  if (point.floor-killer.floor).Magnitude<self.config.MinimumKillerSpawnSeparation then self:Cleanup();return nil,"Asesino demasiado cerca de supervivientes" end
+  for _,prior in survivors do if (point.floor-prior.floor).Magnitude<5 then self:Cleanup();return nil,"Spawns de supervivientes superpuestos" end end
+  survivors[i]=point
+ end
+ self.active.killer=killer;self.active.escape=escape;self.active.survivors=survivors;self.active.bounds=s.bounds
+ return self.active
+end
+function Service:Cleanup()
+ if self.active and self.active.owned then self.active.model:Destroy() end
+ self.active=nil
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="19">
+        <Properties>
+          <string name="Name">AvatarService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(config,registry)
+ return setmetatable({config=config,registry=registry,saved={},loading={}},Service)
+end
+function Service:Save(player)
+ local c=player.Character;local h=c and c:FindFirstChildOfClass("Humanoid");local root=c and c:FindFirstChild("HumanoidRootPart")
+ if h and root and not self.saved[player.UserId] then
+  local archivable=c.Archivable;c.Archivable=true
+  local snapshot=c:Clone();c.Archivable=archivable
+  self.saved[player.UserId]={WalkSpeed=h.WalkSpeed,JumpPower=h.JumpPower,JumpHeight=h.JumpHeight,
+   AutoRotate=h.AutoRotate,UseJumpPower=h.UseJumpPower,MaxHealth=h.MaxHealth,Anchored=root.Anchored}
+  self.saved[player.UserId].Snapshot=snapshot
+ end
+end
+function Service:Load(player,record)
+ if self.loading[player.UserId] then return false,"El avatar todavía está cargando" end
+ self.loading[player.UserId]=true
+ local done,ok,err=false,false,nil
+ task.spawn(function()
+  ok,err=pcall(function()
+   local definition=record and (record.role=="KILLER" and self.registry.Killer or self.registry.Survivors[record.character])
+   local modelName=definition and definition.ModelName or ""
+   local temporaryTemplate=record and self.saved[player.UserId] and self.saved[player.UserId].Snapshot
+   if modelName~="" or temporaryTemplate then
+    local folder=game:GetService("ServerStorage"):FindFirstChild("BrokenDreamsCharacters")
+    local template=temporaryTemplate
+    if modelName~="" then template=folder and folder:FindFirstChild(modelName) end
+    assert(template and template:FindFirstChildOfClass("Humanoid") and template:FindFirstChild("HumanoidRootPart"),"Modelo personalizado incompleto: "..modelName)
+    local avatar=template:Clone();avatar.Name=player.Name
+    local old=player.Character;player.Character=avatar;avatar.Parent=workspace
+    if old then old:Destroy() end
+   else player:LoadCharacterAsync() end
+  end)
+  self.loading[player.UserId]=nil;done=true
+ end)
+ local endAt=os.clock()+self.config.CharacterLoadTimeout
+ repeat task.wait(.05) until done or not player.Parent or os.clock()>=endAt
+ if not done then return false,"Tiempo agotado cargando avatar" end
+ if not ok then return false,tostring(err) end
+ local c=player.Character
+ if not c or not c:FindFirstChildOfClass("Humanoid") or not c:FindFirstChild("HumanoidRootPart") then return false,"Avatar sin Humanoid / root" end
+ if record and record.role=="KILLER" then
+  local highlight=Instance.new("Highlight");highlight.Name="BD_KillerPlaceholder";highlight.FillColor=Color3.fromRGB(155,35,190)
+  highlight.FillTransparency=.65;highlight.OutlineColor=Color3.fromRGB(255,65,65);highlight.DepthMode=Enum.HighlightDepthMode.Occluded;highlight.Parent=c
+  local tag=Instance.new("BillboardGui");tag.Name="BD_RoleLabel";tag.Size=UDim2.fromOffset(160,36);tag.StudsOffset=Vector3.new(0,3,0);tag.MaxDistance=60;tag.Adornee=c.HumanoidRootPart;tag.Parent=c
+  local label=Instance.new("TextLabel");label.Size=UDim2.fromScale(1,1);label.BackgroundTransparency=1;label.Text="RAY.X · PROVISIONAL";label.TextColor3=Color3.fromRGB(255,100,130);label.TextScaled=true;label.Parent=tag
+ end
+ return true
+end
+function Service:Restore(player)
+ local saved=self.saved[player.UserId]
+ if not saved or not player.Parent then return false end
+ if saved.Snapshot then
+  local old=player.Character;local restored=saved.Snapshot;saved.Snapshot=nil
+  restored.Name=player.Name;player.Character=restored;restored.Parent=workspace
+  if old then old:Destroy() end
+ end
+ local c=player.Character;local h=c and c:FindFirstChildOfClass("Humanoid");local root=c and c:FindFirstChild("HumanoidRootPart")
+ if saved and h and root then
+  for key,value in saved do if key~="Anchored" and key~="Snapshot" then h[key]=value end end
+  root.Anchored=saved.Anchored;h.Health=h.MaxHealth
+ end
+ self.saved[player.UserId]=nil
+ return h~=nil and root~=nil
+end
+function Service:Forget(id)
+ local saved=self.saved[id]
+ if saved and saved.Snapshot then saved.Snapshot:Destroy() end
+ self.saved[id]=nil
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="20">
+        <Properties>
+          <string name="Name">MaliciaService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(config,hooks)
+ return setmetatable({config=config,hooks=hooks,values={},studioOverrides={}},Service)
+end
+function Service:Get(player)
+ if self.studioOverrides[player.UserId]~=nil then return self.studioOverrides[player.UserId] end
+ local value=self.hooks.ReadMalicia(player)
+ if value==nil then
+  if self.values[player.UserId]==nil then self.values[player.UserId]=self.config.InitialMalicia end
+  value=self.values[player.UserId]
+ end
+ assert(type(value)=="number" and value==value and math.abs(value)<math.huge,"Malicia del servidor inválida")
+ return value
+end
+function Service:SetStudio(player,value)
+ assert(game:GetService("RunService"):IsStudio(),"Solo Studio")
+ assert(type(value)=="number" and value==value and math.abs(value)<=1e9,"Valor inválido")
+ self.studioOverrides[player.UserId]=value
+end
+function Service:Forget(player) self.values[player.UserId]=nil;self.studioOverrides[player.UserId]=nil end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="21">
+        <Properties>
+          <string name="Name">IntegrationHooks</string>
+          <string name="Source"><![CDATA[-- Módulo SOLO servidor. Conectar aquí datos/economía existentes cuando se proporcionen.
+-- No hay incremento, reinicio, premios ni almacenamiento inventados.
+local Hooks={}
+function Hooks.ReadMalicia(_player) return nil end -- nil usa GameConfig.InitialMalicia por sesión
+function Hooks.OnResult(_player,_result,_roundKey)
+ -- Una llamada por usuario/ronda en este servidor. Para guardar premios:
+ -- usar UpdateAsync y deduplicar por roundKey ANTES de aplicar el premio.
+end
+return Hooks
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="22">
+        <Properties>
+          <string name="Name">RoundCore</string>
+          <string name="Source"><![CDATA[-- Núcleo puro: sin remotes, geometría ni reloj del cliente. now lo proporciona el servidor.
+local Core = {}; Core.__index=Core
+local function finite(n) return type(n)=="number" and n==n and math.abs(n)<math.huge end
+function Core.new(config, characters, randomIndex)
+ return setmetatable({config=config, characters=characters, randomIndex=randomIndex,
+  state="WAITING_FOR_PLAYERS", deadline=0, roundId=0, revision=0, roster={},
+  preferences={}, queue={}, sequence=0, results={}, reason="", mapReady=false,
+  portalOpen=false, lmsUsed=false, killerId=nil, lastKiller={}, intermissionOverride=nil},Core)
+end
+function Core:Change(state,now,duration)
+ self.state=state; self.deadline=duration and now+duration or 0; self.revision+=1
+end
+function Core:IsActive() return self.state=="ACTIVE_ROUND" or self.state=="LAST_SURVIVOR_STANDING" end
+function Core:IsLiveAt(now)
+ if self:IsActive() and now>=self.deadline then self:Finish(now,"TIMEOUT");return false end
+ return self:IsActive()
+end
+function Core:Remaining(now) return self.deadline==0 and -1 or math.max(0,math.ceil(self.deadline-now)) end
+function Core:Candidates(players)
+ local out={}
+ for _,p in ipairs(players) do
+  if finite(p.malicia) then
+   if not self.queue[p.id] then self.sequence+=1; self.queue[p.id]=self.sequence end
+   table.insert(out,p)
+  end
+ end
+ table.sort(out,function(a,b) return self.queue[a.id]<self.queue[b.id] end)
+ return out
+end
+function Core:ChooseKiller(players)
+ local top=-math.huge; local tied={}
+ for _,p in ipairs(players) do
+  if p.malicia>top then top=p.malicia; tied={p}
+  elseif p.malicia==top then table.insert(tied,p) end
+ end
+ -- Empate: quien menos recientemente fue asesino; azar uniforme si persiste.
+ local oldest=math.huge; local finalists={}
+ for _,p in ipairs(tied) do
+  local last=self.lastKiller[p.id] or 0
+  if last<oldest then oldest=last; finalists={p}
+  elseif last==oldest then table.insert(finalists,p) end
+ end
+ return #finalists>0 and finalists[self.randomIndex(#finalists)] or nil
+end
+function Core:Select(id,name)
+ if not table.find(self.characters,name) then return false,"Personaje desconocido" end
+ if self.state=="WAITING_FOR_PLAYERS" or self.state=="INTERMISSION" then
+  self.preferences[id]=name; self.revision+=1; return true,"Preferencia guardada"
+ end
+ if self.state~="CHARACTER_SELECTION" then return false,"Selección bloqueada" end
+ local p=self.roster[id]
+ if not p or p.role~="SURVIVOR" then return false,"Esperas la siguiente partida o eres RAY.X" end
+ for otherId,other in pairs(self.roster) do
+  if otherId~=id and other.character==name then return false,"Ese personaje ya está reservado" end
+ end
+ p.character=name; self.preferences[id]=name; self.revision+=1; return true,"Personaje reservado"
+end
+function Core:BeginSelection(players,now)
+ local candidates=self:Candidates(players); local killer=self:ChooseKiller(candidates)
+ if not killer or #candidates<self.config.MinimumPlayers then return end
+ self.roundId+=1; self.killerId=killer.id; self.roster={}; self.results={}
+ self.portalOpen=false; self.lmsUsed=false; self.lmsSurvivorId=nil; self.initialSurvivors=0; self.reason=""
+ local function add(p,role)
+  self.roster[p.id]={id=p.id,name=p.name,role=role,status="ALIVE",health=self.config.MaximumHealth,
+   lives=role=="SURVIVOR" and 2 or 0, character=role=="KILLER" and "RAY.X" or nil}
+ end
+ add(killer,"KILLER")
+ for _,p in ipairs(candidates) do
+  if p.id~=killer.id and self.initialSurvivors<self.config.MaximumSurvivors then
+   add(p,"SURVIVOR"); self.initialSurvivors+=1
+  end
+ end
+ self:Change("CHARACTER_SELECTION",now,self.config.SelectionSeconds)
+ -- Orden de cola para resolver preferencias repetidas sin duplicar personajes.
+ for _,p in ipairs(candidates) do
+  if self.preferences[p.id] then self:Select(p.id,self.preferences[p.id]) end
+ end
+end
+function Core:FillCharacters()
+ local used={}; local missing={}
+ for _,p in pairs(self.roster) do
+  if p.role=="SURVIVOR" then
+   if p.character then used[p.character]=true else table.insert(missing,p) end
+  end
+ end
+ table.sort(missing,function(a,b) return self.queue[a.id]<self.queue[b.id] end)
+ for _,p in ipairs(missing) do
+  for _,name in ipairs(self.characters) do if not used[name] then p.character=name; used[name]=true; break end end
+ end
+end
+function Core:StartRound(now)
+ if self.state~="PREPARING_ROUND" then return false end
+ self.lastKiller[self.killerId]=self.roundId
+ for id in pairs(self.roster) do self.sequence+=1; self.queue[id]=self.sequence end
+ self:Change("ACTIVE_ROUND",now,self.config.RoundSeconds); return true
+end
+function Core:Abort(now,reason)
+ self.reason=reason or "Ronda cancelada"; self.results={}
+ for id in pairs(self.roster) do self.results[id]="CANCELLED" end
+ self.aggregate="CANCELLED"; self:Change("ROUND_RESULTS",now,self.config.ResultsSeconds)
+end
+function Core:Survivors()
+ local active={}
+ for _,p in pairs(self.roster) do
+  if p.role=="SURVIVOR" and (p.status=="ALIVE" or p.status=="DOWNED") then table.insert(active,p) end
+ end
+ return active
+end
+function Core:BeginLMS(now,manual)
+ if not self:IsLiveAt(now) then return false end
+ if self.state~="ACTIVE_ROUND" or self.lmsUsed then return false end
+ local remaining=self:Survivors()
+ if #remaining~=1 or remaining[1].status~="ALIVE" then return false end
+ if not manual and self.initialSurvivors<2 then return false end
+ self.lmsUsed=true; self.lmsSurvivorId=remaining[1].id
+ self:Change("LAST_SURVIVOR_STANDING",now,self.config.LMSSeconds); return true
+end
+function Core:Finish(now,reason)
+ if not self:IsActive() then return false end
+ self.reason=reason; self.results={}; local escaped,failed=0,0
+ for id,p in pairs(self.roster) do
+  if p.role=="SURVIVOR" then
+   local outcome
+   if p.status=="ESCAPED" then outcome="ESCAPED"; escaped+=1
+   elseif p.status=="ELIMINATED" or p.status=="DISCONNECTED" then outcome="DEFEAT"; failed+=1
+   elseif reason=="KILLER_LEFT" and self.config.KillerDisconnectOutcome=="SURVIVOR_WIN" then outcome="SURVIVOR_WIN"
+   elseif reason=="TIMEOUT" and self.config.TimeoutOutcome=="DRAW" then outcome="DRAW"
+   elseif reason=="STUDIO_END" then outcome="CANCELLED"
+   else outcome="DEFEAT"; failed+=1 end
+   self.results[id]=outcome
+  end
+ end
+ if reason=="STUDIO_END" then self.aggregate="CANCELLED"
+ elseif reason=="KILLER_LEFT" then self.aggregate="KILLER_LEFT"
+ elseif escaped>0 and failed>0 then self.aggregate="MIXED"
+ elseif escaped>0 then self.aggregate="SURVIVOR_WIN"
+ elseif reason=="TIMEOUT" and self.config.TimeoutOutcome=="DRAW" then self.aggregate="DRAW"
+ else self.aggregate="KILLER_WIN" end
+ self.results[self.killerId]=self.aggregate=="KILLER_WIN" and "KILLER_WIN"
+  or self.aggregate=="CANCELLED" and "CANCELLED" or self.aggregate=="DRAW" and "DRAW" or "DEFEAT"
+ self:Change("ROUND_RESULTS",now,self.config.ResultsSeconds); return true
+end
+function Core:Resolve(now)
+ if not self:IsActive() then return end
+ if #self:Survivors()==0 then self:Finish(now,"NO_SURVIVORS") else self:BeginLMS(now,false) end
+end
+function Core:Damage(id,amount,sourceId,now)
+ if not self:IsLiveAt(now) or (sourceId~=nil and sourceId~=self.killerId) or not finite(amount) or amount<=0 then return false end
+ local p=self.roster[id]
+ if not p or p.role~="SURVIVOR" or p.status~="ALIVE" then return false end
+ p.health=math.max(0,p.health-amount); self.revision+=1
+ if p.health==0 then
+  p.lives-=1
+  if p.lives==1 then
+   p.status="DOWNED"; p.downedBy=sourceId
+   p.bleedoutAt=self.config.BleedoutSeconds and now+self.config.BleedoutSeconds or nil
+  else self:Eliminate(id,sourceId,now) end
+ end
+ return true
+end
+function Core:Eliminate(id,sourceId,now)
+ local p=self.roster[id]
+ if not self:IsLiveAt(now) or not p or p.role~="SURVIVOR" or (p.status~="ALIVE" and p.status~="DOWNED") then return false end
+ p.status="ELIMINATED";p.health=0;p.lives=0;p.bleedoutAt=nil;self.revision+=1
+ if self.state=="ACTIVE_ROUND" and sourceId==self.killerId then self.deadline+=self.config.EliminationBonusSeconds end
+ self:Resolve(now); return true
+end
+function Core:Revive(id,now)
+ local p=self.roster[id]
+ if not self:IsLiveAt(now) or not p or p.status~="DOWNED" then return false end
+ if p.bleedoutAt and now>=p.bleedoutAt then return false end
+ p.status="ALIVE";p.health=self.config.ReviveHealth;p.bleedoutAt=nil;self.revision+=1;return true
+end
+function Core:Escape(id,now)
+ local p=self.roster[id]
+ if not self:IsLiveAt(now) or not self.portalOpen or not p or p.role~="SURVIVOR" or p.status~="ALIVE" then return false end
+ p.status="ESCAPED";self.revision+=1;self:Resolve(now);return true
+end
+function Core:Disconnect(id,now)
+ self.preferences[id]=nil;self.queue[id]=nil
+ local p=self.roster[id];if not p then return end
+ if p.status~="ESCAPED" and p.status~="ELIMINATED" then p.status="DISCONNECTED" end
+ self.revision+=1
+ if self:IsActive() then
+  if id==self.killerId then self:Finish(now,"KILLER_LEFT") else self:Resolve(now) end
+ elseif self.state=="CHARACTER_SELECTION" or self.state=="PREPARING_ROUND" then
+  if id==self.killerId or #self:Survivors()<1 then self:Abort(now,"Un participante salió durante la preparación")
+  else self.roster[id]=nil;self.initialSurvivors-=1 end
+ end
+end
+function Core:Returned(now)
+ if self.state~="RETURN_TO_LOBBY" then return end
+ self.roster={};self.killerId=nil;self.portalOpen=false;self.results={};self.reason=""
+ self:Change("WAITING_FOR_PLAYERS",now)
+end
+function Core:Step(now,players,mapReady)
+ self.mapReady=mapReady
+ if self.state=="WAITING_FOR_PLAYERS" then
+  self:Candidates(players)
+  if #players>=self.config.MinimumPlayers and mapReady then
+   self.reason="";self:Change("INTERMISSION",now,self.intermissionOverride or self.config.IntermissionSeconds)
+  end
+ elseif self.state=="INTERMISSION" then
+  if #players<self.config.MinimumPlayers or not mapReady then self:Change("WAITING_FOR_PLAYERS",now)
+  elseif now>=self.deadline then self:BeginSelection(players,now) end
+ elseif self.state=="CHARACTER_SELECTION" then
+  if #players<self.config.MinimumPlayers then self:Abort(now,"Faltan jugadores")
+  elseif now>=self.deadline then self:FillCharacters();self:Change("PREPARING_ROUND",now) end
+ elseif self:IsActive() then
+  if now>=self.deadline then self:Finish(now,"TIMEOUT");return end
+  if not self.portalOpen and self.deadline-now<=self.config.EscapeAtSeconds then self.portalOpen=true;self.revision+=1 end
+  -- Resolver todos los sangrados del mismo tick antes de evaluar LMS.
+  local expired={}
+  for id,p in pairs(self.roster) do if p.status=="DOWNED" and p.bleedoutAt and now>=p.bleedoutAt then table.insert(expired,id) end end
+  for _,id in ipairs(expired) do
+   local p=self.roster[id]
+   if self:IsActive() then self:Eliminate(id,p.downedBy,now) end
+  end
+  self:Resolve(now)
+ elseif self.state=="ROUND_RESULTS" and now>=self.deadline then self:Change("RETURN_TO_LOBBY",now) end
+end
+return Core
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="23">
+        <Properties>
+          <string name="Name">EscapeService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(core,players) return setmetatable({core=core,players=players,model=nil,trigger=nil},Service) end
+function Service:Open(point)
+ if self.model then return end
+ local model=Instance.new("Model");model.Name="BD_EscapePainting"
+ local origin=CFrame.lookAt(point.floor,point.floor+point.cframe.LookVector)
+ local function part(name,size,offset,color,material)
+  local p=Instance.new("Part");p.Name=name;p.Anchored=true;p.CanCollide=false;p.CanTouch=false;p.CanQuery=false
+  p.Size=size;p.CFrame=origin*CFrame.new(offset);p.Color=color;p.Material=material or Enum.Material.Wood;p.Parent=model;return p
+ end
+ local gold=Color3.fromRGB(173,116,39)
+ part("FrameLeft",Vector3.new(.65,9,.8),Vector3.new(-3.3,4.6,0),gold)
+ part("FrameRight",Vector3.new(.65,9,.8),Vector3.new(3.3,4.6,0),gold)
+ part("FrameTop",Vector3.new(7.3,.65,.8),Vector3.new(0,9,0),gold)
+ part("FrameBottom",Vector3.new(7.3,.65,.8),Vector3.new(0,.3,0),gold)
+ for _,x in {-3.3,3.3} do for _,y in {.3,9} do
+  local ornament=part("CarvedCorner",Vector3.new(1.1,1.1,1.1),Vector3.new(x,y,0),gold,Enum.Material.Metal);ornament.Shape=Enum.PartType.Ball
+ end end
+ self.trigger=part("MagicCanvas",Vector3.new(6,8,.35),Vector3.new(0,4.6,0),Color3.fromRGB(147,64,224),Enum.Material.Neon)
+ self.trigger.Transparency=.32
+ local light=Instance.new("PointLight");light.Color=self.trigger.Color;light.Range=16;light.Brightness=1.4;light.Shadows=false;light.Parent=self.trigger
+ local particles=Instance.new("ParticleEmitter");particles.Texture="rbxasset://textures/particles/sparkles_main.dds";particles.Rate=4
+ particles.Lifetime=NumberRange.new(1,2);particles.Speed=NumberRange.new(.3,.8);particles.Size=NumberSequence.new(.18)
+ particles.Color=ColorSequence.new(Color3.fromRGB(206,154,255));particles.LightEmission=.8;particles.Parent=self.trigger
+ local gui=Instance.new("BillboardGui");gui.Size=UDim2.fromOffset(220,45);gui.StudsOffset=Vector3.new(0,5,0);gui.MaxDistance=140;gui.Parent=self.trigger
+ local label=Instance.new("TextLabel");label.Size=UDim2.fromScale(1,1);label.BackgroundTransparency=1;label.Text="EL CUADRO ESTÁ ABIERTO";label.TextColor3=Color3.fromRGB(239,210,255);label.TextScaled=true;label.Parent=gui
+ model.Parent=workspace;self.model=model
+end
+function Service:Step(now)
+ if not self.trigger or not self.core:IsActive() or now>=self.core.deadline then return end
+ for id,p in self.core.roster do
+  if p.role=="SURVIVOR" and p.status=="ALIVE" then
+   local player=self.players:GetPlayerByUserId(id);local root=player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+   if root then
+    local v=self.trigger.CFrame:PointToObjectSpace(root.Position)
+    if math.abs(v.X)<=3 and math.abs(v.Y)<=4 and math.abs(v.Z)<=2.2 then self.core:Escape(id,now) end
+   end
+  end
+ end
+end
+function Service:Cleanup() if self.model then self.model:Destroy() end;self.model=nil;self.trigger=nil end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="24">
+        <Properties>
+          <string name="Name">ReviveService</string>
+          <string name="Source"><![CDATA[-- El cliente solo comunica empezar/cancelar. Nunca comunica cuánto tiempo mantuvo la acción.
+local Service={};Service.__index=Service
+function Service.new(core,config,players)
+ return setmetatable({core=core,config=config,players=players,sessions={},prompts={}},Service)
+end
+function Service:Valid(actorId,targetId)
+ if actorId==targetId or not self.core:IsActive() then return false end
+ local a,b=self.core.roster[actorId],self.core.roster[targetId]
+ if not a or not b or a.role~="SURVIVOR" or a.status~="ALIVE" or b.status~="DOWNED" then return false end
+ local pa,pb=self.players:GetPlayerByUserId(actorId),self.players:GetPlayerByUserId(targetId)
+ local ra=pa and pa.Character and pa.Character:FindFirstChild("HumanoidRootPart")
+ local rb=pb and pb.Character and pb.Character:FindFirstChild("HumanoidRootPart")
+ if not ra or not rb or (ra.Position-rb.Position).Magnitude>self.config.ReviveDistance then return false end
+ local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Exclude;params.FilterDescendantsInstances={pa.Character,pb.Character};params.RespectCanCollide=true
+ if workspace:Raycast(ra.Position,rb.Position-ra.Position,params) then return false end
+ return true
+end
+function Service:Begin(actorId,targetId,now)
+ if self:Valid(actorId,targetId) then self.sessions[actorId]={target=targetId,started=now,round=self.core.roundId};return true end
+ return false
+end
+function Service:Cancel(actorId) self.sessions[actorId]=nil end
+function Service:Step(now)
+ for actorId,s in self.sessions do
+  if s.round~=self.core.roundId or not self:Valid(actorId,s.target) then self.sessions[actorId]=nil
+  elseif now-s.started>=self.config.ReviveSeconds then self.core:Revive(s.target,now);self.sessions[actorId]=nil end
+ end
+ for id,p in self.core.roster do
+  local player=self.players:GetPlayerByUserId(id)
+  local root=player and player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+  local old=self.prompts[id]
+  if old and (p.status~="DOWNED" or not self.core:IsActive() or old.Parent~=root) then old:Destroy();self.prompts[id]=nil end
+  if p.status=="DOWNED" and self.core:IsActive() and root and not self.prompts[id] then
+   local prompt=Instance.new("ProximityPrompt");prompt.Name="BD_Revive";prompt.ActionText="Reanimar";prompt.ObjectText=player.DisplayName
+   prompt:SetAttribute("TargetUserId",id);prompt.HoldDuration=self.config.ReviveSeconds+.2;prompt.MaxActivationDistance=self.config.ReviveDistance;prompt.RequiresLineOfSight=true
+   prompt.KeyboardKeyCode=Enum.KeyCode.E;prompt.Parent=root;self.prompts[id]=prompt
+   -- La interacción se temporiza en Begin/Cancel a través del remote validado.
+  end
+ end
+end
+function Service:Cleanup()
+ self.sessions={};for _,p in self.prompts do p:Destroy() end;self.prompts={}
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="25">
+        <Properties>
+          <string name="Name">SpawnService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(config,lobby) return setmetatable({config=config,lobby=lobby},Service) end
+function Service:Validate(map,marker,bounds,clearance)
+ if not marker or not marker:IsA("BasePart") or not marker.Anchored or marker.CanCollide then return nil,"Marcador inválido o con colisión" end
+ local p=bounds.CFrame:PointToObjectSpace(marker.Position)
+ local half=bounds.Size/2
+ if math.abs(p.X)>half.X-3 or math.abs(p.Z)>half.Z-3 or math.abs(p.Y)>half.Y then return nil,"Marcador fuera de PlayBounds" end
+ local exclusions={map.RoundSpawns,bounds}
+ local ray=RaycastParams.new();ray.FilterType=Enum.RaycastFilterType.Exclude
+ local ignore=table.clone(exclusions)
+ for _,pl in game:GetService("Players"):GetPlayers() do if pl.Character then table.insert(ignore,pl.Character) end end
+ ray.FilterDescendantsInstances=ignore;ray.RespectCanCollide=true
+ local hit=workspace:Raycast(marker.Position+Vector3.new(0,self.config.SpawnGroundRayHeight,0),
+  Vector3.new(0,-self.config.SpawnGroundRayDepth,0),ray)
+ if not hit or not hit.Instance:IsDescendantOf(map) or hit.Normal.Y<.8 then return nil,"Falta suelo seguro del mapa" end
+ local floor=hit.Position
+ -- Ningún spawn de partida puede invadir la carpa ni su bosque.
+ local state=game:GetService("ReplicatedStorage"):FindFirstChild("BrokenDreamsLobbyState")
+ if state then
+  local origin=state:GetAttribute("Origin");local lo=state:GetAttribute("LobbyBoundsMin");local hi=state:GetAttribute("LobbyBoundsMax")
+  if origin and lo and hi then
+   local q=floor-origin
+   if q.X>lo.X-8 and q.X<hi.X+8 and q.Z>lo.Z-8 and q.Z<hi.Z+8 then return nil,"El mapa invade el lobby" end
+  end
+ end
+ local size=clearance or Vector3.new(unpack(self.config.SpawnClearance))
+ -- Comprueba soporte bajo las cuatro esquinas, no solo un punto sobre un borde.
+ for _,dx in {-size.X/2,size.X/2} do for _,dz in {-size.Z/2,size.Z/2} do
+  local support=workspace:Raycast(floor+Vector3.new(dx,2,dz),Vector3.new(0,-4,0),ray)
+  if not support or not support.Instance:IsDescendantOf(map) or support.Normal.Y<.8 or math.abs(support.Position.Y-floor.Y)>1 then return nil,"Suelo discontinuo junto al marcador" end
+ end end
+ local overlap=OverlapParams.new();overlap.FilterType=Enum.RaycastFilterType.Exclude
+ overlap.FilterDescendantsInstances=ignore;overlap.RespectCanCollide=true
+ local cf=CFrame.new(floor+Vector3.new(0,size.Y/2+.15,0))
+ for _,part in workspace:GetPartBoundsInBox(cf,size,overlap) do
+  if part.CanCollide then return nil,"Volumen de aparición obstruido: "..part.Name end
+ end
+ local forward=marker.CFrame.LookVector*Vector3.new(1,0,1)
+ if forward.Magnitude<.1 then forward=Vector3.new(0,0,-1) end
+ return {floor=floor,cframe=CFrame.lookAt(floor+Vector3.new(0,3.5,0),floor+Vector3.new(0,3.5,0)+forward)}
+end
+function Service:Teleport(player,cf)
+ local character=player.Character;local root=character and character:FindFirstChild("HumanoidRootPart")
+ local hum=character and character:FindFirstChildOfClass("Humanoid")
+ if not root or not hum or hum.Health<=0 then return false,"Avatar no disponible" end
+ character:PivotTo(cf);root.AssemblyLinearVelocity=Vector3.zero;root.AssemblyAngularVelocity=Vector3.zero
+ return true
+end
+function Service:LobbyCFrame(index)
+ local spawn=self.lobby.PlayerSpawns.LobbySpawn
+ -- El acceso tiene espacio abierto; pequeños offsets evitan apilar avatares.
+ return spawn.CFrame*CFrame.new(((index or 1)-1)%3*3-3,4,math.floor(((index or 1)-1)/3)*3)
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="26">
+        <Properties>
+          <string name="Name">ResultsService</string>
+          <string name="Source"><![CDATA[local Service={};Service.__index=Service
+function Service.new(hooks) return setmetatable({hooks=hooks,processed={}},Service) end
+function Service:Deliver(core,players)
+ local key=game.JobId..":"..tostring(core.roundId)
+ if self.processed[key] then return end
+ self.processed={[key]=true} -- una sola ronda vigente, sin crecimiento ilimitado
+ for id,result in core.results do
+  local player=players:GetPlayerByUserId(id)
+  if player then
+   player:SetAttribute("BDResult",result)
+   task.spawn(function()
+    local ok,err=pcall(self.hooks.OnResult,player,result,key)
+    if not ok then warn("[BROKEN DREAMS] Hook de resultados: "..tostring(err)) end
+   end)
+  end
+ end
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="27">
+        <Properties>
+          <string name="Name">HealthService</string>
+          <string name="Source"><![CDATA[-- Fuente de salud: RoundCore en el servidor. Las habilidades futuras llaman Damage.
+-- Humanoid se mantiene con >=1 durante DOWNED, sin depender de revivir un Humanoid muerto.
+local Service={};Service.__index=Service
+function Service.new(core,avatar,onDeath)
+ return setmetatable({core=core,avatar=avatar,onDeath=onDeath,bindings={}},Service)
+end
+function Service:Unbind(id)
+ local b=self.bindings[id];if b then for _,c in b.connections do c:Disconnect() end;self.bindings[id]=nil end
+end
+function Service:Bind(player)
+ self:Unbind(player.UserId)
+ local c=player.Character;local h=c and c:FindFirstChildOfClass("Humanoid");local root=c and c:FindFirstChild("HumanoidRootPart")
+ if not h or not root then return false end
+ local b={connections={},writing=false,previous=self.core.config.MaximumHealth,root=root,humanoid=h,character=c};self.bindings[player.UserId]=b
+ h.BreakJointsOnDeath=false
+ -- El daño externo es ambiental: no puede fabricar una eliminación atribuida a RAY.X.
+ table.insert(b.connections,h.HealthChanged:Connect(function(value)
+  if b.writing or not self.core:IsActive() then return end
+  local record=self.core.roster[player.UserId]
+  if record and record.role=="SURVIVOR" and value<b.previous and record.status=="ALIVE" then
+   self.core:Damage(player.UserId,b.previous-value,nil,workspace:GetServerTimeNow())
+  end
+  self:Sync(player)
+ end))
+ table.insert(b.connections,h.Died:Connect(function()
+  if self.core:IsActive() then self.onDeath(player,root.CFrame) end
+ end))
+ self:Sync(player);return true
+end
+function Service:Sync(player)
+ local p=self.core.roster[player.UserId];local b=self.bindings[player.UserId]
+ if not b or not p or not b.character.Parent then return end
+ local h,root=b.humanoid,b.root;local active=self.core:IsActive()
+ local down=p.status=="DOWNED";local frozen=not active or down
+ local out=p.status=="ELIMINATED" or p.status=="ESCAPED" or p.status=="DISCONNECTED"
+ if out then frozen=false end
+ local original=self.avatar.saved[player.UserId]
+ local walk=original and original.WalkSpeed or 16
+ local jump=original and original.JumpPower or 50
+ local height=original and original.JumpHeight or 7.2
+ h.WalkSpeed=frozen and 0 or walk;h.JumpPower=frozen and 0 or jump;h.JumpHeight=frozen and 0 or height;h.AutoRotate=not frozen
+ root.Anchored=frozen
+ if down then
+  h.Sit=true
+  if not b.character:FindFirstChild("BD_NeedsHelp") then
+   local gui=Instance.new("BillboardGui");gui.Name="BD_NeedsHelp";gui.Size=UDim2.fromOffset(180,42);gui.StudsOffset=Vector3.new(0,3,0);gui.MaxDistance=90;gui.Adornee=root;gui.Parent=b.character
+   local text=Instance.new("TextLabel");text.Size=UDim2.fromScale(1,1);text.Text="NECESITA AYUDA";text.TextColor3=Color3.fromRGB(255,213,107);text.BackgroundTransparency=1;text.TextScaled=true;text.Parent=gui
+  end
+ else
+  local help=b.character:FindFirstChild("BD_NeedsHelp");if help then help:Destroy();h.Sit=false end
+ end
+ b.writing=true
+ h.MaxHealth=self.core.config.MaximumHealth
+ local health=out and h.MaxHealth or math.max(1,p.health)
+ if h.Health>0 and h.Health~=health then h.Health=health end
+ b.previous=health;b.writing=false
+ player:SetAttribute("BDHealth",p.health);player:SetAttribute("BDLives",p.lives);player:SetAttribute("BDStatus",p.status)
+end
+function Service:Damage(target,amount,killer)
+ local now=workspace:GetServerTimeNow()
+ -- Cierra primero la ronda si el plazo ya terminó.
+ if self.core:IsActive() and now>=self.core.deadline then self.core:Finish(now,"TIMEOUT");return false end
+ return self.core:Damage(target.UserId,amount,killer and killer.UserId or nil,now)
+end
+function Service:Cleanup()
+ local ids={};for id in self.bindings do table.insert(ids,id) end
+ for _,id in ids do self:Unbind(id) end
+end
+return Service
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="28">
+        <Properties>
+          <string name="Name">RateLimiter</string>
+          <string name="Source"><![CDATA[local Limiter={};Limiter.__index=Limiter
+function Limiter.new(capacity,refill) return setmetatable({capacity=capacity,refill=refill,buckets={}},Limiter) end
+function Limiter:Allow(id,now)
+ local b=self.buckets[id] or {tokens=self.capacity,time=now};self.buckets[id]=b
+ b.tokens=math.min(self.capacity,b.tokens+math.max(0,now-b.time)*self.refill);b.time=now
+ if b.tokens<1 then return false end;b.tokens-=1;return true
+end
+function Limiter:Forget(id) self.buckets[id]=nil end
+return Limiter
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+    <Item class="StringValue" referent="29">
+      <Properties>
+        <string name="Name">HUDSource</string>
+        <string name="Value"><![CDATA[-- Sustituye solamente el controlador anterior del MISMO HUD, no crea otro temporizador.
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local root=ReplicatedStorage:WaitForChild("BrokenDreams")
+local client=root:WaitForChild("Client")
+local gui=script.Parent
+local ui=require(client.RoundUIController).new(gui)
+local music=require(client.MusicController).new(require(root.Shared.GameConfig),require(root.Shared.CharacterRegistry))
+local connections=require(client.CharacterSelectionController).Start(root.Remotes.Request)
+table.insert(connections,root.Remotes.Snapshot.OnClientEvent:Connect(function(snapshot)
+ ui:Update(snapshot);music:Update(snapshot)
+end))
+table.insert(connections,root.Remotes.Notice.OnClientEvent:Connect(function(message)ui:Notify(message)end))
+root.Remotes.Request:FireServer("Sync")
+script.Destroying:Connect(function()
+ for _,connection in connections do connection:Disconnect() end
+ ui:Destroy();music:Destroy()
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Folder" referent="30">
+      <Properties>
+        <string name="Name">BrokenDreamsMaps</string>
+      </Properties>
+      <Item class="Model" referent="31">
+        <Properties>
+          <string name="Name">BD_TestArena</string>
+          <BinaryString name="AttributesSerialize">AwAAAAcAAABCRE1hcElkAgoAAAByb3VuZF90ZXN0CwAAAFByb3Zpc2lvbmFsAwEKAAAAU3R1ZGlvT25seQMB</BinaryString>
+        </Properties>
+        <Item class="Model" referent="32">
+          <Properties>
+            <string name="Name">Geometry</string>
+          </Properties>
+          <Item class="Part" referent="33">
+            <Properties>
+              <string name="Name">TestGround</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>7.399994</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4343363</Color3uint8>
+              <token name="Material">800</token>
+              <Vector3 name="size">
+                <X>120</X>
+                <Y>2</Y>
+                <Z>110</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="34">
+            <Properties>
+              <string name="Name">BoundaryWall</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>340</X>
+                <Y>14.399994</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">800</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>12</Y>
+                <Z>113</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="35">
+            <Properties>
+              <string name="Name">BoundaryWall</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>460</X>
+                <Y>14.399994</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">800</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>12</Y>
+                <Z>113</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="36">
+            <Properties>
+              <string name="Name">BoundaryWall</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>14.399994</Y>
+                <Z>-55</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">800</token>
+              <Vector3 name="size">
+                <X>120</X>
+                <Y>12</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="37">
+            <Properties>
+              <string name="Name">BoundaryWall</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>14.399994</Y>
+                <Z>55</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">800</token>
+              <Vector3 name="size">
+                <X>120</X>
+                <Y>12</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="38">
+            <Properties>
+              <string name="Name">TestCover</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>376</X>
+                <Y>11.399994</Y>
+                <Z>-14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">896</token>
+              <Vector3 name="size">
+                <X>7</X>
+                <Y>6</Y>
+                <Z>12</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="39">
+            <Properties>
+              <string name="Name">CoverTrim</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>376</X>
+                <Y>14.550003</Y>
+                <Z>-14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>7.199997</X>
+                <Y>0.25</Y>
+                <Z>12.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="40">
+            <Properties>
+              <string name="Name">TestCover</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>376</X>
+                <Y>11.399994</Y>
+                <Z>14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">896</token>
+              <Vector3 name="size">
+                <X>7</X>
+                <Y>6</Y>
+                <Z>12</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="41">
+            <Properties>
+              <string name="Name">CoverTrim</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>376</X>
+                <Y>14.550003</Y>
+                <Z>14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>7.199997</X>
+                <Y>0.25</Y>
+                <Z>12.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="42">
+            <Properties>
+              <string name="Name">TestCover</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>424</X>
+                <Y>11.399994</Y>
+                <Z>-14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">896</token>
+              <Vector3 name="size">
+                <X>7</X>
+                <Y>6</Y>
+                <Z>12</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="43">
+            <Properties>
+              <string name="Name">CoverTrim</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>424</X>
+                <Y>14.550003</Y>
+                <Z>-14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>7.199997</X>
+                <Y>0.25</Y>
+                <Z>12.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="44">
+            <Properties>
+              <string name="Name">TestCover</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>424</X>
+                <Y>11.399994</Y>
+                <Z>14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">896</token>
+              <Vector3 name="size">
+                <X>7</X>
+                <Y>6</Y>
+                <Z>12</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="45">
+            <Properties>
+              <string name="Name">CoverTrim</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>424</X>
+                <Y>14.550003</Y>
+                <Z>14</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>7.199997</X>
+                <Y>0.25</Y>
+                <Z>12.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="46">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>14.899994</Y>
+                <Z>-47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="47">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>21.5</Y>
+                <Z>-47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="48">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="49">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>14.899994</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="50">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>21.5</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="51">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="52">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>14.899994</Y>
+                <Z>47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="53">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>345</X>
+                <Y>21.5</Y>
+                <Z>47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="54">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="55">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>14.899994</Y>
+                <Z>-47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="56">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>21.5</Y>
+                <Z>-47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="57">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="58">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>14.899994</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="59">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>21.5</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="60">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="61">
+            <Properties>
+              <string name="Name">TestColumn</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>14.899994</Y>
+                <Z>47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">true</bool>
+              <bool name="CanQuery">true</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">788</token>
+              <Vector3 name="size">
+                <X>3</X>
+                <Y>13</Y>
+                <Z>3</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="62">
+            <Properties>
+              <string name="Name">SoftGlow</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>455</X>
+                <Y>21.5</Y>
+                <Z>47</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">8867250</Color3uint8>
+              <token name="Material">288</token>
+              <Vector3 name="size">
+                <X>3.199997</X>
+                <Y>0.3999939</Y>
+                <Z>3.199997</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="PointLight" referent="63">
+              <Properties>
+                <string name="Name">TestLight</string>
+                <float name="Brightness">0.65</float>
+                <Color3 name="Color">
+                  <R>0.5294118</R>
+                  <G>0.3019608</G>
+                  <B>0.69803923</B>
+                </Color3>
+                <float name="Range">24</float>
+                <bool name="Shadows">false</bool>
+              </Properties>
+            </Item>
+          </Item>
+          <Item class="Part" referent="64">
+            <Properties>
+              <string name="Name">TestLane</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>8.430008</Y>
+                <Z>-27</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>102</X>
+                <Y>0.039993286</Y>
+                <Z>1</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="65">
+            <Properties>
+              <string name="Name">TestLane</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>8.430008</Y>
+                <Z>27</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">9925695</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>102</X>
+                <Y>0.039993286</Y>
+                <Z>1</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="66">
+            <Properties>
+              <string name="Name">ProvisionalNotice</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>16</Y>
+                <Z>-53.300003</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>40</X>
+                <Y>6</Y>
+                <Z>0.30000305</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+            </Properties>
+            <Item class="SurfaceGui" referent="67">
+              <Properties>
+                <string name="Name">Notice</string>
+                <Vector2 name="CanvasSize">
+                  <X>1400</X>
+                  <Y>210</Y>
+                </Vector2>
+                <token name="Face">2</token>
+              </Properties>
+              <Item class="TextLabel" referent="68">
+                <Properties>
+                  <string name="Name">Text</string>
+                  <float name="BackgroundTransparency">1</float>
+                  <Font name="FontFace">
+                    <Family>
+                      <url>rbxasset://fonts/families/GothamSSm.json</url>
+                    </Family>
+                    <Weight>700</Weight>
+                    <Style>Normal</Style>
+                  </Font>
+                  <UDim2 name="Size">
+                    <XS>1</XS>
+                    <XO>0</XO>
+                    <YS>1</YS>
+                    <YO>0</YO>
+                  </UDim2>
+                  <string name="Text">BROKEN DREAMS · ARENA PROVISIONAL
+NO ES THE FORGOTTEN GLADE</string>
+                  <Color3 name="TextColor3">
+                    <R>0.92941177</R>
+                    <G>0.8</G>
+                    <B>0.5882353</B>
+                  </Color3>
+                  <bool name="TextScaled">true</bool>
+                </Properties>
+              </Item>
+            </Item>
+          </Item>
+        </Item>
+        <Item class="Part" referent="69">
+          <Properties>
+            <string name="Name">PlayBounds</string>
+            <bool name="Anchored">true</bool>
+            <token name="BottomSurface">0</token>
+            <CoordinateFrame name="CFrame">
+              <X>400</X>
+              <Y>18.399994</Y>
+              <Z>0</Z>
+              <R00>1</R00>
+              <R01>0</R01>
+              <R02>0</R02>
+              <R10>0</R10>
+              <R11>1</R11>
+              <R12>0</R12>
+              <R20>0</R20>
+              <R21>0</R21>
+              <R22>1</R22>
+            </CoordinateFrame>
+            <bool name="CanCollide">false</bool>
+            <bool name="CanQuery">false</bool>
+            <bool name="CanTouch">false</bool>
+            <Color3uint8 name="Color3uint8">4012364</Color3uint8>
+            <token name="Material">272</token>
+            <Vector3 name="size">
+              <X>114</X>
+              <Y>30</Y>
+              <Z>104</Z>
+            </Vector3>
+            <token name="TopSurface">0</token>
+            <float name="Transparency">1</float>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="70">
+          <Properties>
+            <string name="Name">RoundSpawns</string>
+          </Properties>
+          <Item class="Part" referent="71">
+            <Properties>
+              <string name="Name">Killer</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>400</X>
+                <Y>8.5</Y>
+                <Z>-34</Z>
+                <R00>-1</R00>
+                <R01>0</R01>
+                <R02>-0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>-1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>1</X>
+                <Y>0.19999695</Y>
+                <Z>1</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+              <float name="Transparency">1</float>
+            </Properties>
+          </Item>
+          <Item class="Part" referent="72">
+            <Properties>
+              <string name="Name">Escape</string>
+              <bool name="Anchored">true</bool>
+              <token name="BottomSurface">0</token>
+              <CoordinateFrame name="CFrame">
+                <X>445</X>
+                <Y>8.5</Y>
+                <Z>0</Z>
+                <R00>1</R00>
+                <R01>0</R01>
+                <R02>0</R02>
+                <R10>0</R10>
+                <R11>1</R11>
+                <R12>0</R12>
+                <R20>0</R20>
+                <R21>0</R21>
+                <R22>1</R22>
+              </CoordinateFrame>
+              <bool name="CanCollide">false</bool>
+              <bool name="CanQuery">false</bool>
+              <bool name="CanTouch">false</bool>
+              <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+              <token name="Material">272</token>
+              <Vector3 name="size">
+                <X>1</X>
+                <Y>0.19999695</Y>
+                <Z>1</Z>
+              </Vector3>
+              <token name="TopSurface">0</token>
+              <float name="Transparency">1</float>
+            </Properties>
+          </Item>
+          <Item class="Folder" referent="73">
+            <Properties>
+              <string name="Name">Survivors</string>
+            </Properties>
+            <Item class="Part" referent="74">
+              <Properties>
+                <string name="Name">Survivor01</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>375</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+            <Item class="Part" referent="75">
+              <Properties>
+                <string name="Name">Survivor02</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>385</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+            <Item class="Part" referent="76">
+              <Properties>
+                <string name="Name">Survivor03</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>395</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+            <Item class="Part" referent="77">
+              <Properties>
+                <string name="Name">Survivor04</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>405</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+            <Item class="Part" referent="78">
+              <Properties>
+                <string name="Name">Survivor05</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>415</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+            <Item class="Part" referent="79">
+              <Properties>
+                <string name="Name">Survivor06</string>
+                <bool name="Anchored">true</bool>
+                <token name="BottomSurface">0</token>
+                <CoordinateFrame name="CFrame">
+                  <X>425</X>
+                  <Y>8.5</Y>
+                  <Z>34</Z>
+                  <R00>1</R00>
+                  <R01>0</R01>
+                  <R02>0</R02>
+                  <R10>0</R10>
+                  <R11>1</R11>
+                  <R12>0</R12>
+                  <R20>0</R20>
+                  <R21>0</R21>
+                  <R22>1</R22>
+                </CoordinateFrame>
+                <bool name="CanCollide">false</bool>
+                <bool name="CanQuery">false</bool>
+                <bool name="CanTouch">false</bool>
+                <Color3uint8 name="Color3uint8">15119615</Color3uint8>
+                <token name="Material">272</token>
+                <Vector3 name="size">
+                  <X>1</X>
+                  <Y>0.19999695</Y>
+                  <Z>1</Z>
+                </Vector3>
+                <token name="TopSurface">0</token>
+                <float name="Transparency">1</float>
+              </Properties>
+            </Item>
+          </Item>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+</roblox>

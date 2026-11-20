@@ -1,0 +1,93 @@
+{
+  "baseCommit": "0bac0d0079bb7dd3c896c6313e470c42d3ac7bdb",
+  "modifiedAttributes": [
+    "BrokenDreamsLobbyState.LobbyWaitSeconds",
+    "BrokenDreamsLobbyState.RoundPhase"
+  ],
+  "modifiedExistingScripts": [
+    "StarterGui.BrokenDreamsLobbyHUD.LobbyHUD"
+  ],
+  "officialMapExists": false,
+  "originalPartsPreserved": 5580,
+  "originalScripts": {
+    "ServerScriptService.BrokenDreamsLobbyAPI": "-- API exclusiva del servidor. No inicia partidas ni asigna asesino.\nlocal state=game:GetService(\"ReplicatedStorage\"):WaitForChild(\"BrokenDreamsLobbyState\")\nlocal API={}\nlocal function imageId(value)\n assert(type(value)==\"string\" and (value==\"\" or value:match(\"^rbxassetid://%d+$\")), \"Usa rbxassetid://ID o una cadena vacía\")\n return value\nend\nfunction API.SetCountdown(seconds)\n assert(type(seconds)==\"number\" and seconds==seconds and seconds<math.huge and (seconds==-1 or seconds>=0),\"Tiempo inválido\")\n state:SetAttribute(\"RemainingSeconds\",seconds==-1 and -1 or math.floor(seconds))\nend\nfunction API.SetNextMap(name,asset)\n assert(type(name)==\"string\",\"Nombre inválido\")\n local checked=imageId(asset)\n state:SetAttribute(\"NextMapImage\",checked);state:SetAttribute(\"NextMapName\",name)\nend\nfunction API.SetPortrait(characterName,asset)\n local portraits=state:FindFirstChild(\"Portraits\")\n characterName=characterName:gsub(\" \",\"_\")\n assert(portraits:GetAttribute(characterName)~=nil,\"Superviviente desconocido\")\n portraits:SetAttribute(characterName,imageId(asset))\nend\n-- Mayor malicia obligatoria. Empate: menor UserId; nunca se usa azar.\n-- Devuelve nil si faltan datos: nunca escoge arbitrariamente por defecto.\nfunction API.GetHighestMalice(players,readMalice)\n assert(type(readMalice)==\"function\",\"Proporciona la función que lee tu malicia autoritativa\")\n local best,bestValue=nil,-math.huge\n for _,player in ipairs(players) do\n  local value=readMalice(player)\n  if type(value)~=\"number\" or value~=value or math.abs(value)==math.huge then\n   return nil,\"Malicia no disponible para \"..player.Name\n  end\n  if value>bestValue or (value==bestValue and (not best or player.UserId<best.UserId)) then best=player;bestValue=value end\n end\n return best,bestValue\nend\nfunction API.RefreshMalicia(players,readMalice)\n local player,value=API.GetHighestMalice(players,readMalice)\n if not player then\n  state:SetAttribute(\"MaliciaUserId\",0);state:SetAttribute(\"MaliciaName\",\"POR DETERMINAR\");state:SetAttribute(\"MaliciaValue\",0)\n  return nil,value\n end\n state:SetAttribute(\"MaliciaValue\",value);state:SetAttribute(\"MaliciaName\",player.DisplayName);state:SetAttribute(\"MaliciaUserId\",player.UserId)\n return player,value\nend\nreturn API\n",
+    "ServerScriptService.BrokenDreamsLobbyServer": "local Players=game:GetService(\"Players\")\nlocal state=game:GetService(\"ReplicatedStorage\"):WaitForChild(\"BrokenDreamsLobbyState\")\nlocal lobby=workspace:WaitForChild(\"BrokenDreamsLobby\")\nlocal portraits=state:WaitForChild(\"Portraits\")\nlocal function guiFor(model)\n local surface=model:FindFirstChild(\"DisplaySurface\",true)\n return surface and surface:FindFirstChild(\"Display\")\nend\nlocal malicia=guiFor(lobby.MaliciaBoard)\nlocal map=guiFor(lobby.NextMapBoard)\nlocal requestVersion=0\nlocal function updateMalicia()\n requestVersion+=1;local thisRequest=requestVersion\n malicia.Detail.Text=state:GetAttribute(\"MaliciaName\") or \"POR DETERMINAR\"\n malicia.Portrait.Image=\"\";malicia.Placeholder.Visible=true\n local id=state:GetAttribute(\"MaliciaUserId\") or 0\n if id>0 then\n  task.spawn(function()\n   local ok,image,ready=pcall(Players.GetUserThumbnailAsync,Players,id,Enum.ThumbnailType.AvatarBust,Enum.ThumbnailSize.Size420x420)\n   if ok and ready and requestVersion==thisRequest then malicia.Portrait.Image=image;malicia.Placeholder.Visible=false end\n  end)\n end\nend\nlocal function updateMap()\n map.Detail.Text=state:GetAttribute(\"NextMapName\") or \"MAPA PENDIENTE\"\n map.Portrait.Image=state:GetAttribute(\"NextMapImage\") or \"\"\n map.Placeholder.Visible=map.Portrait.Image==\"\"\nend\nfor _,key in ipairs({\"MaliciaName\",\"MaliciaUserId\"}) do state:GetAttributeChangedSignal(key):Connect(updateMalicia) end\nfor _,key in ipairs({\"NextMapName\",\"NextMapImage\"}) do state:GetAttributeChangedSignal(key):Connect(updateMap) end\nupdateMap();updateMalicia()\nfor _,model in ipairs(lobby.CharacterGallery:GetChildren()) do\n local display=guiFor(model)\n if display then\n  local name=model:GetAttribute(\"CharacterName\"):gsub(\" \",\"_\")\n  local function refresh() display.Portrait.Image=portraits:GetAttribute(name) or \"\";display.Placeholder.Visible=display.Portrait.Image==\"\" end\n  portraits:GetAttributeChangedSignal(name):Connect(refresh);refresh()\n end\nend\nlocal function joined(player)\n if state:GetAttribute(\"AssignLobbySpawn\") then player.RespawnLocation=lobby.PlayerSpawns.LobbySpawn end\nend\nPlayers.PlayerAdded:Connect(joined)\nfor _,player in ipairs(Players:GetPlayers()) do joined(player) end\n-- No bucle de cuenta atrás: el futuro RoundService llamará a API.SetCountdown.\n",
+    "StarterGui.BrokenDreamsLobbyHUD.LobbyHUD": "local Players=game:GetService(\"Players\")\nlocal RunService=game:GetService(\"RunService\")\nlocal player=Players.LocalPlayer\nlocal state=game:GetService(\"ReplicatedStorage\"):WaitForChild(\"BrokenDreamsLobbyState\")\nlocal gui=script.Parent\nlocal timer=gui.Panel.Time\nlocal oldCamera=nil\nlocal function update()\n local seconds=state:GetAttribute(\"RemainingSeconds\") or -1\n timer.Text=seconds<0 and \"—:—\" or string.format(\"%02d:%02d\",math.floor(seconds/60),seconds%60)\nend\nstate:GetAttributeChangedSignal(\"RemainingSeconds\"):Connect(update);update()\nlocal elapsed=0\nRunService.Heartbeat:Connect(function(dt)\n elapsed+=dt;if elapsed<.25 then return end;elapsed=0\n local root=player.Character and player.Character:FindFirstChild(\"HumanoidRootPart\")\n local origin=state:GetAttribute(\"Origin\")\n local p=root and origin and root.Position-origin\n local boundsMin=state:GetAttribute(\"LobbyBoundsMin\") or Vector3.new(-38,-3,-32)\n local boundsMax=state:GetAttribute(\"LobbyBoundsMax\") or Vector3.new(38,34,35)\n local inside=p~=nil and p.X>boundsMin.X and p.X<boundsMax.X and p.Y>boundsMin.Y and p.Y<boundsMax.Y and p.Z>boundsMin.Z and p.Z<boundsMax.Z\n gui.Enabled=inside\n if inside and not oldCamera then\n  oldCamera={player.CameraMode,player.CameraMinZoomDistance,player.CameraMaxZoomDistance}\n  player.CameraMode=Enum.CameraMode.Classic\n  player.CameraMinZoomDistance=6;player.CameraMaxZoomDistance=24\n elseif not inside and oldCamera then\n  player.CameraMode=oldCamera[1]\n  -- Reset min first so restoring a smaller maximum never clamps incorrectly.\n  player.CameraMinZoomDistance=0.5;player.CameraMaxZoomDistance=oldCamera[3];player.CameraMinZoomDistance=oldCamera[2]\n  oldCamera=nil\n end\nend)\n"
+  },
+  "provisionalMap": "ServerStorage.BrokenDreamsMaps.BD_TestArena",
+  "studioTested": false,
+  "topLevelInventory": [
+    {
+      "class": "Workspace",
+      "path": "Workspace"
+    },
+    {
+      "class": "ReplicatedStorage",
+      "path": "ReplicatedStorage"
+    },
+    {
+      "class": "ServerScriptService",
+      "path": "ServerScriptService"
+    },
+    {
+      "class": "StarterGui",
+      "path": "StarterGui"
+    },
+    {
+      "class": "Lighting",
+      "path": "Lighting"
+    },
+    {
+      "class": "StarterPlayer",
+      "path": "StarterPlayer"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.ForestExterior"
+    },
+    {
+      "class": "Folder",
+      "path": "Workspace.BrokenDreamsLobby.PreviousLighting"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.SkinCorner"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.CharacterGallery"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.NextMapBoard"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.Decorations"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.MaliciaBoard"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.Carpet"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.LightingProps"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.PlayerSpawns"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.TentStructure"
+    },
+    {
+      "class": "Model",
+      "path": "Workspace.BrokenDreamsLobby.WoodenFloor"
+    }
+  ]
+}
