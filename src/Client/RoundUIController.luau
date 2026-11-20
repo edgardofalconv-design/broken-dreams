@@ -2,9 +2,11 @@ local Players=game:GetService("Players")
 local RunService=game:GetService("RunService")
 local TweenService=game:GetService("TweenService")
 local player=Players.LocalPlayer
+local formatTime=require(game:GetService("ReplicatedStorage").BrokenDreams.Shared.TimerFormat)
 local Controller={};Controller.__index=Controller
 local phaseNames={
- WAITING_FOR_PLAYERS="ESPERANDO JUGADORES",INTERMISSION="LA PARTIDA COMIENZA EN",
+ WAITING_FOR_PLAYERS="ESPERANDO JUGADORES...",INTERMISSION="LA PARTIDA COMIENZA EN",
+ ROUND_START_REQUESTED="LA PARTIDA COMIENZA EN",
  CHARACTER_SELECTION="ELIGE TU SUPERVIVIENTE",PREPARING_ROUND="PREPARANDO LA PARTIDA",
  ACTIVE_ROUND="SOBREVIVE Y BUSCA LA SALIDA",LAST_SURVIVOR_STANDING="ÚLTIMO SUPERVIVIENTE",
  ROUND_RESULTS="RESULTADOS",RETURN_TO_LOBBY="REGRESANDO AL LOBBY",
@@ -49,7 +51,8 @@ function Controller.new(gui)
  table.insert(self.connections,RunService.RenderStepped:Connect(function()
   if not self.data then return end
   local remaining=self.data.deadline>0 and math.max(0,math.ceil(self.data.deadline-workspace:GetServerTimeNow())) or -1
-  self.timer.Text=remaining<0 and "—:—" or string.format("%02d:%02d",math.floor(remaining/60),remaining%60)
+  if self.data.countdownOnly then remaining=self.data.remainingSeconds end
+  self.timer.Text=formatTime(remaining)
   if self.notice.Visible and os.clock()>self.noticeUntil then self.notice.Visible=false end
  end))
  player.CameraMode=Enum.CameraMode.Classic;player.CameraMinZoomDistance=6;player.CameraMaxZoomDistance=24

@@ -20,7 +20,8 @@ local function environment(fn,extra)
 end
 environment(Revive.Valid,{RaycastParams={new=function()return {}end},Enum=rb.Enum,workspace={Raycast=function()return blocked and {} or nil end}})
 local function active()
- local c=Core.new(table.clone(Config),Registry.Order,function()return 1 end)
+ local config=table.clone(Config);config.LobbyCountdownOnly=false
+ local c=Core.new(config,Registry.Order,function()return 1 end)
  local ps={};for i=1,4 do table.insert(ps,{id=i,name="Player"..i,malicia=i}) end
  c:Step(0,ps,true);c:Step(30,ps,true);c:Step(45,ps,true);c:StartRound(45)
  return c

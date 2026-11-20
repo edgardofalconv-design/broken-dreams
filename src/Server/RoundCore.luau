@@ -5,7 +5,8 @@ function Core.new(config, characters, randomIndex)
  return setmetatable({config=config, characters=characters, randomIndex=randomIndex,
   state="WAITING_FOR_PLAYERS", deadline=0, roundId=0, revision=0, roster={},
   preferences={}, queue={}, sequence=0, results={}, reason="", mapReady=false,
-  portalOpen=false, lmsUsed=false, killerId=nil, lastKiller={}, intermissionOverride=nil},Core)
+  portalOpen=false, lmsUsed=false, killerId=nil, lastKiller={}, intermissionOverride=nil,
+  countdownId=0, pendingStartRequest=nil},Core)
 end
 function Core:Change(state,now,duration)
  self.state=state; self.deadline=duration and now+duration or 0; self.revision+=1
@@ -15,7 +16,19 @@ function Core:IsLiveAt(now)
  if self:IsActive() and now>=self.deadline then self:Finish(now,"TIMEOUT");return false end
  return self:IsActive()
 end
-function Core:Remaining(now) return self.deadline==0 and -1 or math.max(0,math.ceil(self.deadline-now)) end
+function Core:Remaining(now)
+ if self.state=="ROUND_START_REQUESTED" then return 0 end
+ return self.deadline==0 and -1 or math.max(0,math.ceil(self.deadline-now))
+end
+-- Consumo único: ni los Heartbeats siguientes ni un reinicio reemiten la misma señal.
+function Core:TakeStartRequest()
+ local request=self.pendingStartRequest;self.pendingStartRequest=nil;return request
+end
+function Core:RestartLobbyCountdown(now,players)
+ if not self.config.LobbyCountdownOnly or (self.state~="WAITING_FOR_PLAYERS" and self.state~="INTERMISSION" and self.state~="ROUND_START_REQUESTED") then return false end
+ self.pendingStartRequest=nil;self:Change("WAITING_FOR_PLAYERS",now)
+ self:Step(now,players,false);return true
+end
 function Core:Candidates(players)
  local out={}
  for _,p in ipairs(players) do
@@ -195,14 +208,23 @@ function Core:Returned(now)
 end
 function Core:Step(now,players,mapReady)
  self.mapReady=mapReady
+ local canCount=self.config.LobbyCountdownOnly or mapReady
  if self.state=="WAITING_FOR_PLAYERS" then
   self:Candidates(players)
-  if #players>=self.config.MinimumPlayers and mapReady then
+  if #players>=self.config.MinimumPlayers and canCount then
+   self.countdownId+=1
    self.reason="";self:Change("INTERMISSION",now,self.intermissionOverride or self.config.IntermissionSeconds)
   end
  elseif self.state=="INTERMISSION" then
-  if #players<self.config.MinimumPlayers or not mapReady then self:Change("WAITING_FOR_PLAYERS",now)
-  elseif now>=self.deadline then self:BeginSelection(players,now) end
+  if #players<self.config.MinimumPlayers or not canCount then self:Change("WAITING_FOR_PLAYERS",now)
+  elseif now>=self.deadline then
+   if self.config.LobbyCountdownOnly then
+    self.pendingStartRequest={countdownId=self.countdownId,completedAt=now}
+    self:Change("ROUND_START_REQUESTED",now)
+   else self:BeginSelection(players,now) end
+  end
+ elseif self.state=="ROUND_START_REQUESTED" then
+  if #players<self.config.MinimumPlayers then self:Change("WAITING_FOR_PLAYERS",now) end
  elseif self.state=="CHARACTER_SELECTION" then
   if #players<self.config.MinimumPlayers then self:Abort(now,"Faltan jugadores")
   elseif now>=self.deadline then self:FillCharacters();self:Change("PREPARING_ROUND",now) end

@@ -1,0 +1,35 @@
+PASS No empieza con un jugador
+PASS Mapa ausente bloquea de forma segura
+PASS Intermedio automático de 30 y cancelación
+PASS Máxima Malicia estricta 10,25,6,15
+PASS Desempate rota entre máximos, nunca incluye menor Malicia
+PASS Azar de desempate solo entre empatados más antiguos
+PASS Capacidad seis sin excluir al máximo de Malicia
+PASS Preferencias no bloquean el lobby; reservas únicas por ronda
+PASS Selección bloqueada en partida, 355 exactos
+PASS Primera caída consume una vida; daño repetido no mata DOWNED
+PASS Reanimación conserva vida gastada y salud configurada
+PASS Segunda caída elimina y añade diez una sola vez
+PASS Daño ambiental no concede bonificación
+PASS No acepta daño NaN, infinito, negativo o atacante incorrecto
+PASS Escape abre a 80 y nunca permite asesino ni incapacitado
+PASS Incapacitado cuenta: LMS no inicia con compañero reanimable
+PASS LMS exactamente 217, sin repetir, portal persiste
+PASS 1v1 no fuerza LMS; activación manual disponible
+PASS Salida LMS abre a 80
+PASS LMS termina en escape sin duplicar resultado
+PASS Resultado mixto cuando uno escapa y otro muere
+PASS Timeout derrota provisional; retorno e intermedio siguiente
+PASS Timeout configurable como empate
+PASS Desconexión del asesino resuelve sin fingir escape
+PASS Desconexión incapacitado limpia y permite LMS
+PASS Todos los supervivientes abandonan: fin
+PASS Llegada tardía no entra al roster
+PASS Asesino sale durante selección: cancelación
+PASS Fallo de carga cancela sin empezar ronda
+PASS Sangrado configurado resuelve DOWNED y solo bonifica una vez
+PASS Sangrado opcional y revive tardío rechazado
+PASS Cola da turno a excedentes en la ronda siguiente
+PASS Rate limit rechaza ráfagas y repone tokens
+PASS Servidor vacío vuelve a esperar sin iniciar rondas
+TOTAL 34 pruebas de lógica pasadas; NO equivalen a Roblox Studio multicliente

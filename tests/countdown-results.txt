@@ -1,0 +1,12 @@
+PASS Un jugador espera sin plazo ni evento
+PASS Dos jugadores inician 30 segundos aunque falte mapa
+PASS Ticks y jugadores adicionales no reinician ni duplican el reloj
+PASS Todos reciben el mismo entero de servidor y formato 00:09
+PASS Bajar de dos cancela y vuelve a empezar desde 30 al reunirse
+PASS Abandono en el tick de cero cancela antes de emitir señal
+PASS Cero emite exactamente una solicitud interna y permanece visible
+PASS Reiniciar desde cero crea un ciclo nuevo y otra única señal
+PASS Reinicio con un jugador espera, reinicio a mitad no deja señal vieja
+PASS Malicia y elección de máximo permanecen intactas
+PASS No se activa el ciclo de mapas aun existiendo arena provisional
+TOTAL 11 pruebas locales; sincronización de red y BindableEvent reales pendientes en Studio

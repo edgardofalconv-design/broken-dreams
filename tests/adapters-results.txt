@@ -1,0 +1,10 @@
+PASS Reanimación rechaza uno mismo, asesino, distancia y pared
+PASS Duración de reanimación medida por servidor
+PASS Soltar o alejarse interrumpe reanimación
+PASS Perder estado vivo interrumpe reanimación
+PASS Resultados se entregan una vez por usuario y ronda
+PASS Acciones tardías no extienden una ronda ya vencida
+PASS Spawn seguro requiere suelo, pendiente y volumen libres
+PASS Spawn fuera de PlayBounds rechazado
+PASS Spawn dentro del lobby rechazado
+TOTAL 9 pruebas de adaptadores con dobles locales pasadas; NO motor Roblox

@@ -1,22 +1,17 @@
-# BROKEN DREAMS — rondas multijugador, versión de prueba
+# BROKEN DREAMS — cuenta regresiva automática
 
-Esta rama entrega el sistema de partidas sobre el **lobby y bosque existentes**, con una **arena provisional separada y exclusiva de Studio**. The Forgotten Glade sigue pendiente de construcción como primer mapa oficial.
+[Descargar ZIP completo](dist/Broken-Dreams-Contador-Entrega.zip) · [Abrir proyecto .rbxlx](dist/Broken-Dreams-Contador.rbxlx) · [Guía de pruebas e integración](GUIA_CONTADOR.md)
 
-## Archivos
+Sobre el proyecto existente: con dos jugadores inicia una cuenta de 30 segundos en el mismo cartel del HUD. Si queda uno, se cancela y muestra **ESPERANDO JUGADORES...**. Al llegar a **00:00**, emite una señal interna de servidor una sola vez; no carga mapas ni teletransporta.
 
-- [Proyecto completo para Roblox Studio](dist/Broken-Dreams-Partidas.rbxlx)
-- [ZIP con proyecto, respaldo, scripts, modelo importable y guía](dist/Broken-Dreams-Partidas-Entrega.zip)
-- [Guía para abrir, probar e integrar](GUIA_PARTIDAS.md)
-- [Comprobaciones locales y limitaciones](VALIDACION_PARTIDAS.json)
-- [Lista de pruebas pendientes en Studio](PRUEBAS_STUDIO.md)
-- [Código fuente](src)
+No se altera Malicia, la carpa, el bosque, los cuadros, el tablero de próximo mapa ni Lighting. Se conservan el sistema anterior y la arena de pruebas, desactivando su inicio automático mediante `LobbyCountdownOnly=true`.
 
-Descarga preferentemente el ZIP y extráelo. Abre `Broken-Dreams-Partidas.rbxlx` en Studio mediante **Archivo → Abrir desde archivo**. No necesitas importar recursos adicionales en ese archivo. Usa **Test → Server & Clients**, con tres jugadores, para probar también la reanimación. No hay botón Jugar.
+Para otra prueba, en la Command Bar del servidor durante Play:
 
-Incluye intermedio automático, Malicia máxima obligatoria, selección única de seis supervivientes, ronda de 5:55, dos vidas/reanimación, bonificación de +10 por eliminación final, cuadro de escape a 1:20, LMS de 3:37, resultados, espectador, regreso y herramientas solo Studio. No incluye habilidades definitivas, economía, modelos ni música aún no proporcionados.
+```lua
+game.ServerScriptService.BrokenDreams.Signals.RestartLobbyCountdown:Invoke()
+```
 
-La comparación del archivo confirma **5.731 instancias originales conservadas, incluidas 5.580 piezas**. El único script original modificado es el controlador del HUD; los tableros siguen conectados a su API existente. Se incluyen **43 pruebas locales de lógica/adaptadores**, compilación Luau y validación de XML y marcadores de la arena.
+El ZIP incluye el respaldo anterior, todas las fuentes, un parche para Command Bar y la guía. Las 11 pruebas locales nuevas y 43 anteriores pasan. **Roblox Studio y la prueba multicliente no se ejecutaron en este entorno.** Consulta el informe `VALIDACION_CONTADOR.json`.
 
-**No se ejecutó Roblox Studio en el entorno de desarrollo.** La física, la recuperación de Humanoid, los prompts con latencia, la interfaz móvil y la sesión multicliente siguen pendientes de las pruebas descritas en la guía. La arena y las herramientas están desactivadas en servidores públicos.
-
-La rama se basa en `delivery/lobby-bosque-20261114`. Las versiones anteriores y la rama principal se conservan. No contiene cambios en FORGOTTEN.
+Esta rama conserva las entregas anteriores. La documentación `GUIA_PARTIDAS.md` describe el ciclo previo; para la configuración activa de este archivo utiliza **GUIA_CONTADOR.md**.

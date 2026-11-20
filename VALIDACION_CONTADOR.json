@@ -1,0 +1,37 @@
+{
+  "baseline": "a109fbee39af1c70680b4bc618eb4cb7e09958c1",
+  "modified_sources": [
+    "GameConfig",
+    "RoundStates",
+    "RoundUIController",
+    "RoundService",
+    "RoundCore"
+  ],
+  "new_module": "TimerFormat",
+  "preserved_instances": 5810,
+  "preserved_parts": 5617,
+  "all_existing_non_source_properties": "unchanged; attributes also checked by build.luau",
+  "malicia_sources_and_role_functions": "byte-identical",
+  "tests": [
+    {
+      "suite": "countdown",
+      "passed": 11,
+      "roblox_studio": false
+    },
+    {
+      "suite": "round_core",
+      "passed": 34,
+      "roblox_studio": false
+    },
+    {
+      "suite": "adapters",
+      "passed": 9,
+      "roblox_studio": false
+    }
+  ],
+  "syntax": "21 source files + integration patch compiled",
+  "native_roundtrip": "passed with Lune 0.11.1 / rbx-dom",
+  "roblox_studio_executed": false,
+  "real_network_tested": false,
+  "real_bindable_event_tested": false
+}

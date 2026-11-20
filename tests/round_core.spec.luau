@@ -12,7 +12,7 @@ local function players(n)
  local t={};for i=1,n do table.insert(t,{id=i,name="Player"..i,malicia=i}) end;return t
 end
 local function create(n)
- local c=table.clone(original);local core=Core.new(c,registry.Order,function(_n)return 1 end)
+ local c=table.clone(original);c.LobbyCountdownOnly=false;local core=Core.new(c,registry.Order,function(_n)return 1 end)
  return core,players(n),c
 end
 local function active(n)

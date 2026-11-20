@@ -1,5 +1,6 @@
 -- Todos los tiempos son segundos. Solo el servidor decide los valores efectivos.
 return {
+ LobbyCountdownOnly = true, -- Señal interna al llegar a cero; sin cargar ni teletransportar a mapas.
  MinimumPlayers = 2,
  MaximumSurvivors = 6,
  IntermissionSeconds = 30, -- Provisional

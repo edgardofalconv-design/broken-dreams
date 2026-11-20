@@ -44,6 +44,20 @@ local function participantList()
  end
  return list
 end
+-- Bindables exclusivos del servidor. No se abre un remote administrativo al cliente.
+local function countdownRoster()
+ local list={}
+ for _,player in Players:GetPlayers() do table.insert(list,{id=player.UserId,name=player.DisplayName}) end
+ return list -- La cuenta depende de jugadores conectados, no de la carga de sus datos de Malicia.
+end
+local signals=Instance.new("Folder");signals.Name="Signals";signals.Parent=script.Parent
+local startRequested=Instance.new("BindableEvent");startRequested.Name="RoundStartRequested";startRequested.Parent=signals
+local restartCountdown=Instance.new("BindableFunction");restartCountdown.Name="RestartLobbyCountdown";restartCountdown.Parent=signals
+restartCountdown.OnInvoke=function()
+ local ok=core:RestartLobbyCountdown(now(),countdownRoster())
+ if ok then publishAt=0 end
+ return ok
+end
 local function loadAvatar(player,record)
  controlledLoads[player.UserId]=true
  local ok,err=avatar:Load(player,record)
@@ -116,6 +130,7 @@ local function snapshot()
  end
  table.sort(roster,function(a,b)return a.id<b.id end)
  return {state=core.state,roundId=core.roundId,deadline=core.deadline,serverNow=now(),roster=roster,
+  countdownOnly=config.LobbyCountdownOnly,remainingSeconds=core:Remaining(now()),countdownId=core.countdownId,
   portalOpen=core.portalOpen,lmsSurvivorId=core.lmsSurvivorId,killerId=core.killerId,
   results=core.results,aggregate=core.aggregate,reason=core.reason,diagnostic=diagnostic,maxHealth=config.MaximumHealth,
   map=candidate and candidate.entry.Name or "MAPA NO DISPONIBLE"}
@@ -326,11 +341,19 @@ RunService.Heartbeat:Connect(function(dt)
  if core.state=="WAITING_FOR_PLAYERS" and #Players:GetPlayers()==0 then return end
  local ok,err=xpcall(function()
   local time=now();local players=participantList()
-  if core.state=="WAITING_FOR_PLAYERS" and time>=retryAt and not preparing and not returning then
+  if not config.LobbyCountdownOnly and core.state=="WAITING_FOR_PLAYERS" and time>=retryAt and not preparing and not returning then
    candidate,diagnostic=maps:Next();diagnostic=diagnostic or "";retryAt=time+config.MapRetrySeconds
    API.SetNextMap(candidate and candidate.entry.Name or "MAPA NO DISPONIBLE",candidate and candidate.entry.Image or "")
   end
-  core:Step(time,players,candidate~=nil)
+  core:Step(time,config.LobbyCountdownOnly and countdownRoster() or players,candidate~=nil)
+  local request=core:TakeStartRequest()
+  if request then
+   -- Marcar antes de Fire: un consumidor puede reiniciar sin duplicar este evento.
+   runtime:SetAttribute("LastStartRequestId",request.countdownId)
+   runtime:SetAttribute("LastStartRequestAt",request.completedAt)
+   startRequested:Fire(request.countdownId,request.completedAt)
+   publishAt=0
+  end
   if core.state=="PREPARING_ROUND" then prepareRound()
   elseif core:IsActive() then
    revive:Step(time)
